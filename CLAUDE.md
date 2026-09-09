@@ -24,4 +24,6 @@ Type errors surface through `npm run build` — `tsconfig.json` is `noEmit`, and
 
 ## Repository layout
 
-The git repository root is `/Users/martinvukalovic/Documents/ALL_PROJECT_CODE`, one level **above** this project. `git status` and `git log` therefore report on many unrelated sibling projects, and paths in git output are prefixed with `devstash/`. Scope git commands to this directory (`git status -- .`) unless you intend otherwise.
+This project is its own git repository, rooted at this directory, with remote `https://github.com/mvukalov/devstash.git`.
+
+The parent directory `/Users/martinvukalovic/Documents/ALL_PROJECT_CODE` is a **separate, unrelated** repository (`REACT_CODE`) holding many sibling projects. Never run git commands from there when working on DevStash — always stay in this directory.
