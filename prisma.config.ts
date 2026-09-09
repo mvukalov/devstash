@@ -12,6 +12,9 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
+    // Prisma 7 no longer seeds automatically after `migrate dev` / `migrate
+    // reset`; run it explicitly with `npm run db:seed`.
+    seed: "tsx prisma/seed.ts",
   },
   datasource: {
     // Deliberately not the `env()` helper from prisma/config: it resolves

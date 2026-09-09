@@ -107,6 +107,11 @@ model ItemType {
 
   createdAt DateTime @default(now())
 
+  // NOTE: system types have a null userId, and Postgres treats NULLs as
+  // distinct, so the unique below does NOT constrain them. A partial unique
+  // index on (name) WHERE "userId" IS NULL covers those, added by hand in
+  // migrations/20260909103127_system_item_type_unique_index. Prisma has no
+  // declarative syntax for it, so it lives only in that migration.
   @@unique([userId, name])
   @@index([userId])
 }

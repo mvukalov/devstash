@@ -15,6 +15,7 @@
 import "dotenv/config";
 
 import { prisma } from "@/lib/prisma";
+import { SYSTEM_ITEM_TYPES } from "@/lib/system-item-types";
 
 const GREEN = "[32m";
 const RED = "[31m";
@@ -81,6 +82,49 @@ async function testSchema(): Promise<void> {
   );
 }
 
+async function testSystemItemTypes(): Promise<void> {
+  section("System item types");
+
+  const types = await prisma.itemType.findMany({
+    where: { userId: null },
+    orderBy: { name: "asc" },
+  });
+  const byName = new Map(types.map((t) => [t.name, t]));
+
+  check(
+    `exactly ${SYSTEM_ITEM_TYPES.length} seeded`,
+    types.length === SYSTEM_ITEM_TYPES.length,
+    types.map((t) => t.name).join(", ") || "none — run `npm run db:seed`",
+  );
+
+  // Compared against the shared definition rather than a copy, so adding a
+  // type to src/lib/system-item-types.ts without reseeding fails here.
+  for (const expected of SYSTEM_ITEM_TYPES) {
+    const actual = byName.get(expected.name);
+    check(
+      `${expected.name} — icon ${expected.icon}, colour ${expected.color}`,
+      actual?.icon === expected.icon && actual?.color === expected.color,
+      actual ? `got ${actual.icon}, ${actual.color}` : "missing",
+    );
+  }
+
+  check("all flagged isSystem", types.every((t) => t.isSystem));
+
+  // The partial unique index must reject a second system row with the same
+  // name. The declarative @@unique([userId, name]) cannot, since NULLs are
+  // distinct in Postgres — so this asserts the hand-written index is present.
+  const rejected = await prisma.itemType
+    .create({
+      data: { name: "snippet", icon: "Code", color: "#3b82f6", isSystem: true },
+    })
+    .then(async (row) => {
+      await prisma.itemType.delete({ where: { id: row.id } });
+      return false;
+    })
+    .catch(() => true);
+  check("partial unique index blocks duplicate system type", rejected);
+}
+
 interface Counts {
   users: number;
   items: number;
@@ -104,9 +148,15 @@ async function readCounts(): Promise<Counts> {
 async function createFixture(email: string): Promise<string> {
   const user = await prisma.user.create({ data: { email, name: "DB Test" } });
 
-  const itemType = await prisma.itemType.create({
+  // The item points at a seeded system type, which is the path the app will
+  // actually take. A separate user-owned type exercises the cascade below.
+  const systemType = await prisma.itemType.findFirstOrThrow({
+    where: { name: "snippet", userId: null },
+  });
+
+  const customType = await prisma.itemType.create({
     data: {
-      name: "test-snippet",
+      name: "test-custom",
       icon: "Code",
       color: "#3b82f6",
       userId: user.id,
@@ -117,7 +167,7 @@ async function createFixture(email: string): Promise<string> {
     data: {
       name: "Test Collection",
       userId: user.id,
-      defaultTypeId: itemType.id,
+      defaultTypeId: customType.id,
     },
   });
 
@@ -133,7 +183,7 @@ async function createFixture(email: string): Promise<string> {
       language: "ts",
       isPinned: true,
       userId: user.id,
-      itemTypeId: itemType.id,
+      itemTypeId: systemType.id,
       collections: { create: { collectionId: collection.id } },
       tags: { create: { tagId: tag.id } },
     },
@@ -156,7 +206,12 @@ async function testWritesAndRelations(userId: string): Promise<void> {
 
   check("item created", item.title === "Test Snippet");
   check("ContentType enum round-trips", item.contentType === "TEXT");
-  check("itemType relation", item.itemType.name === "test-snippet");
+  check(
+    "item linked to seeded system type",
+    item.itemType.name === "snippet" &&
+      item.itemType.userId === null &&
+      item.itemType.isSystem,
+  );
   check(
     "collection join table",
     item.collections[0]?.collection.name === "Test Collection",
@@ -194,7 +249,16 @@ async function testCascadeDelete(userId: string): Promise<void> {
   check("items removed with user", items === 0);
   check("collections removed with user", collections === 0);
   check("tags removed with user", tags === 0);
-  check("itemTypes removed with user", itemTypes === 0);
+  check("user-owned itemTypes removed with user", itemTypes === 0);
+
+  // Deleting a user must not take the shared system types with it, even
+  // though that user's items referenced one of them.
+  const survivors = await prisma.itemType.count({ where: { userId: null } });
+  check(
+    "system types survive user deletion",
+    survivors === SYSTEM_ITEM_TYPES.length,
+    `${survivors} remaining`,
+  );
 }
 
 async function main(): Promise<void> {
@@ -207,6 +271,7 @@ async function main(): Promise<void> {
   try {
     await testConnection();
     await testSchema();
+    await testSystemItemTypes();
 
     fixtureUserId = await createFixture(email);
     await testWritesAndRelations(fixtureUserId);

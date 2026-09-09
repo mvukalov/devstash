@@ -2,7 +2,7 @@
 
 <!-- Feature Name -->
 
-Database — Neon PostgreSQL + Prisma 7 (@context/features/database-spec.md)
+Seed system item types
 
 ## Status
 
@@ -14,27 +14,21 @@ Completed
 
 <!-- Goals & requirements -->
 
-- Provision a Neon (serverless PostgreSQL) project with a **development** branch (`DATABASE_URL`) and a separate **production** branch.
-- Install and configure Prisma 7 — review the [upgrade guide](https://www.prisma.io/docs/orm/more/upgrade-guides/upgrading-versions/upgrading-to-prisma-7) first, since it has breaking changes vs. Prisma 6.
-- Create the initial `schema.prisma` from the data model in @context/project-overview.md:
-  - Auth models for NextAuth v5: `User`, `Account`, `Session`, `VerificationToken`
-  - Core domain: `ItemType`, `Item`, `Collection`, `Tag`
-  - Explicit join tables: `ItemCollection` (with `addedAt`), `ItemTag`
-  - `ContentType` enum (`TEXT | URL | FILE`)
-  - Billing fields on `User` (`isPro`, `stripeCustomerId`, `stripeSubscriptionId`, `proSince`)
-- Add appropriate indexes (`userId`, `itemTypeId`, `[userId, isPinned]`, `[userId, isFavorite]`, join-table FKs) and `onDelete: Cascade` on user-owned relations.
-- Add a singleton Prisma client at `src/lib/prisma.ts` (guarded against hot-reload duplication in dev).
-- Generate the first migration with `prisma migrate dev` and commit it.
-- Verify with `prisma migrate status` and `npm run build`.
+- Seed the 7 system item types (`snippet`, `prompt`, `command`, `note`, `link`, `file`, `image`) with the icons and colours defined in @context/project-overview.md, matching the `--color-type-*` tokens already in `globals.css`.
+- System types have `userId = null` and `isSystem = true`, and are shared across all users.
+- Make the seed **idempotent** — running it repeatedly must not create duplicates.
+- Add a migration with a partial unique index on `ItemType(name) WHERE "userId" IS NULL`. The existing `@@unique([userId, name])` does not constrain system types, because Postgres treats NULLs as distinct, so it allows two `(NULL, 'snippet')` rows and cannot back an upsert. Prisma has no declarative syntax for partial indexes, so this goes in as raw SQL inside a `migrate dev --create-only` migration.
+- Register the seed under `migrations.seed` in `prisma.config.ts` — Prisma 7 no longer seeds automatically after `migrate dev` / `migrate reset`.
+- Extend `scripts/test-db.ts` to assert the seeded types and the new constraint.
+- Verify with `npm run db:test` and `npm run build`.
 
 ## Notes
 
 <!-- Any extra notes -->
 
-- **Migrations only.** Never `prisma db push` and never hand-edit the DB — `prisma migrate dev` locally (committed), `prisma migrate deploy` in production.
-- Prisma 7 moves fast; fetch current docs before scaffolding rather than relying on memory ([quickstart](https://www.prisma.io/docs/getting-started/prisma-orm/quickstart/prisma-postgres)).
-- The schema is a starting point and will evolve — no seed data or app wiring in this feature beyond the client singleton.
-- `.env` holds `DATABASE_URL` (dev branch) and stays out of git; document the required vars in `.env.example`.
+- Keep the seed as the single source of truth for type names; `src/lib/item-types.ts` maps those names to icons and Tailwind classes for presentation, and the two must not drift.
+- `ItemType` has no `label` column — labels ("Snippets") are presentation-only and stay in the frontend.
+- Custom (user-owned) types are a later Pro feature; the seed only handles system types.
 
 ## History
 
@@ -47,3 +41,4 @@ Completed
 - Dashboard UI Phase 2 (@context/features/dashboard-phase-2-spec.md) — shadcn `sidebar`/`collapsible` installed, sidebar with collapsible Types (linking to `/items/[type]`) and Collections (favorites + recent) groups, user footer, top-bar toggle, offcanvas on desktop and Sheet drawer on mobile, open state persisted in the `sidebar_state` cookie; type accent colours added to `globals.css` as `--color-type-*`; `DashboardShell` shared by `/dashboard` and `/items`; `useIsMobile` rewritten with `useSyncExternalStore` to satisfy the `set-state-in-effect` lint rule
 - Dashboard UI Phase 3 (@context/features/dashboard-phase-3-spec.md) — dashboard main area: 4 stats cards (items, collections, favorite items, favorite collections), recent collections grid with type-coloured left borders and type icon row, pinned items list, 10 most recent items; new `CollectionCard` / `ItemRow` / `StatsCards` components, `getItemType` + border/tile colour maps in `lib/item-types.ts`, and `formatShortDate` in `lib/format.ts` (fixed locale/UTC to avoid hydration drift)
 - Database — Neon PostgreSQL + Prisma 7 (@context/features/database-spec.md) — Prisma pinned to exact `7.10.0` (npm's `latest` tag currently points at the `8.0.0-rc.13` release candidate, and prisma.io docs have already moved to v8, so v7 docs live under `/docs/orm/v7/`); new Rust-free `prisma-client` generator outputting to `src/generated/prisma` (gitignored, rebuilt by a `postinstall` script), `@prisma/adapter-pg` driver adapter (required in v7 — `new PrismaClient()` without one throws), `prisma.config.ts` owning the datasource URL with an explicit `dotenv/config` import since the v7 CLI no longer loads `.env`; two Neon connection strings — pooled `DATABASE_URL` for the app, direct `DIRECT_URL` for the CLI (PgBouncer transaction mode breaks the advisory locks migrations need); `prisma.config.ts` reads `process.env.DIRECT_URL` rather than the `env()` helper, which resolves eagerly and would break credential-free `prisma generate` in CI/Vercel; full schema (10 models + `ContentType` enum, NextAuth models, explicit `ItemCollection`/`ItemTag` join tables), FK indexes and cascade deletes, initial migration `20260909091905_init` applied and verified end-to-end through a Next route; `src/lib/prisma.ts` singleton guarded against hot-reload pool churn; `.gitignore` gained `!.env.example` (the blanket `.env*` would have swallowed it) plus `db:*` npm scripts
+- Seed system item types — `prisma/seed.ts` seeds the 7 system types (`userId = null`, `isSystem = true`) with the icons/colours from @context/project-overview.md, mirroring the `--color-type-*` tokens in `globals.css`; idempotent by matching on `name` + `userId: null` rather than `upsert`, since the declarative `@@unique([userId, name])` cannot identify a system row (Postgres treats NULLs as distinct, so it permits two `(NULL, 'snippet')` rows); migration `20260909103127_system_item_type_unique_index` adds a hand-written partial unique index on `(name) WHERE "userId" IS NULL` to enforce this in the database, verified to survive a later `migrate dev` without Prisma trying to drop it; seed registered under `migrations.seed` in `prisma.config.ts` because Prisma 7 dropped automatic seeding, exposed as `npm run db:seed`; `scripts/test-db.ts` extended with a System item types section asserting the 7 rows and that the partial index rejects a duplicate; the type list itself extracted to `src/lib/system-item-types.ts` as a side-effect-free single source of truth that both the seed and the test import, so the two cannot drift (the seed could not be imported directly — it calls `main()` at module scope, so importing it would run the seed); the test now compares exact icons and colours rather than only hex format, points its fixture item at a seeded system type (the path the app will take) while a separate user-owned type exercises the cascade, and asserts system types survive a user deletion; drift detection verified by temporarily adding an 8th type and confirming the run fails with exit code 1
