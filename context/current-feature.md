@@ -2,8 +2,6 @@
 
 <!-- Feature Name -->
 
-Seed system item types
-
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
@@ -14,21 +12,9 @@ Completed
 
 <!-- Goals & requirements -->
 
-- Seed the 7 system item types (`snippet`, `prompt`, `command`, `note`, `link`, `file`, `image`) with the icons and colours defined in @context/project-overview.md, matching the `--color-type-*` tokens already in `globals.css`.
-- System types have `userId = null` and `isSystem = true`, and are shared across all users.
-- Make the seed **idempotent** — running it repeatedly must not create duplicates.
-- Add a migration with a partial unique index on `ItemType(name) WHERE "userId" IS NULL`. The existing `@@unique([userId, name])` does not constrain system types, because Postgres treats NULLs as distinct, so it allows two `(NULL, 'snippet')` rows and cannot back an upsert. Prisma has no declarative syntax for partial indexes, so this goes in as raw SQL inside a `migrate dev --create-only` migration.
-- Register the seed under `migrations.seed` in `prisma.config.ts` — Prisma 7 no longer seeds automatically after `migrate dev` / `migrate reset`.
-- Extend `scripts/test-db.ts` to assert the seeded types and the new constraint.
-- Verify with `npm run db:test` and `npm run build`.
-
 ## Notes
 
 <!-- Any extra notes -->
-
-- Keep the seed as the single source of truth for type names; `src/lib/item-types.ts` maps those names to icons and Tailwind classes for presentation, and the two must not drift.
-- `ItemType` has no `label` column — labels ("Snippets") are presentation-only and stay in the frontend.
-- Custom (user-owned) types are a later Pro feature; the seed only handles system types.
 
 ## History
 
