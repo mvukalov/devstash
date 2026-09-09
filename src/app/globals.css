@@ -4,6 +4,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Item type accent colours — see the type table in context/project-overview.md */
+@theme {
+    --color-type-snippet: #3b82f6;
+    --color-type-prompt: #8b5cf6;
+    --color-type-command: #f97316;
+    --color-type-note: #fde047;
+    --color-type-file: #6b7280;
+    --color-type-image: #ec4899;
+    --color-type-link: #10b981;
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: var(--font-sans);

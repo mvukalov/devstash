@@ -2,14 +2,19 @@ import { FolderPlus, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 /**
- * Top bar — display only for phase 1. The search field is not wired to any
+ * Top bar — the sidebar toggle is live; the search field is not wired to any
  * query yet and neither button opens the item drawer.
  */
 export function DashboardTopbar() {
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4 sm:px-6">
+      <SidebarTrigger />
+      <Separator orientation="vertical" className="hidden sm:block" />
+
       <div className="relative w-full max-w-md">
         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
         <Input
