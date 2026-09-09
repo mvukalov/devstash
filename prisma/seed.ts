@@ -73,11 +73,35 @@ async function seedSystemItemTypes(): Promise<Map<SystemItemTypeName, string>> {
   return new Map(rows.map((row) => [row.name as SystemItemTypeName, row.id]));
 }
 
+/**
+ * Creates the demo user's tags up front, so items can join to them by name.
+ * `@@unique([userId, name])` makes a tag one row per user, however many items
+ * carry it.
+ */
+async function createTags(userId: string): Promise<Map<string, string>> {
+  const names = [
+    ...new Set(
+      DEMO_COLLECTIONS.flatMap((collection) =>
+        collection.items.flatMap((item) => item.tags ?? []),
+      ),
+    ),
+  ].sort();
+
+  const tags = await Promise.all(
+    names.map((name) =>
+      prisma.tag.create({ data: { name, userId }, select: { id: true } }),
+    ),
+  );
+
+  return new Map(names.map((name, index) => [name, tags[index].id]));
+}
+
 async function createItem(
   item: DemoItem,
   userId: string,
   collectionId: string,
   typeIds: Map<SystemItemTypeName, string>,
+  tagIds: Map<string, string>,
 ): Promise<void> {
   const itemTypeId = typeIds.get(item.type);
 
@@ -98,6 +122,17 @@ async function createItem(
       userId,
       itemTypeId,
       collections: { create: { collectionId } },
+      tags: {
+        create: (item.tags ?? []).map((name) => {
+          const tagId = tagIds.get(name);
+
+          if (!tagId) {
+            throw new Error(`No seeded tag named "${name}".`);
+          }
+
+          return { tagId };
+        }),
+      },
     },
   });
 }
@@ -127,6 +162,9 @@ async function seedDemoData(
   });
   console.log(`  user ${user.email}`);
 
+  const tagIds = await createTags(user.id);
+  console.log(`  ${tagIds.size} tags`);
+
   let itemCount = 0;
 
   for (const collection of DEMO_COLLECTIONS) {
@@ -141,7 +179,7 @@ async function seedDemoData(
     });
 
     for (const item of collection.items) {
-      await createItem(item, user.id, created.id, typeIds);
+      await createItem(item, user.id, created.id, typeIds, tagIds);
       itemCount += 1;
     }
 

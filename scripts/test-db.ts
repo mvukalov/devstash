@@ -109,7 +109,10 @@ async function testSystemItemTypes(): Promise<void> {
     );
   }
 
-  check("all flagged isSystem", types.every((t) => t.isSystem));
+  check(
+    "all flagged isSystem",
+    types.every((t) => t.isSystem),
+  );
 
   // The partial unique index must reject a second system row with the same
   // name. The declarative @@unique([userId, name]) cannot, since NULLs are
@@ -133,7 +136,14 @@ async function testDemoData(): Promise<void> {
     where: { email: DEMO_USER.email },
     include: {
       collections: { include: { items: true } },
-      items: { include: { itemType: true, collections: true } },
+      items: {
+        include: {
+          itemType: true,
+          collections: true,
+          tags: { include: { tag: true } },
+        },
+      },
+      tags: true,
     },
   });
 
@@ -143,7 +153,10 @@ async function testDemoData(): Promise<void> {
   }
 
   check("demo user seeded", true, user.email ?? "");
-  check("profile matches spec", user.name === DEMO_USER.name && user.isPro === DEMO_USER.isPro);
+  check(
+    "profile matches spec",
+    user.name === DEMO_USER.name && user.isPro === DEMO_USER.isPro,
+  );
   check("emailVerified set", user.emailVerified instanceof Date);
   check(
     "password hashed with bcrypt, 12 rounds",
@@ -195,12 +208,14 @@ async function testDemoData(): Promise<void> {
   const texts = user.items.filter((item) => item.contentType === "TEXT");
   check(
     "URL items have a url and no content",
-    links.length > 0 && links.every((item) => Boolean(item.url) && item.content === null),
+    links.length > 0 &&
+      links.every((item) => Boolean(item.url) && item.content === null),
     `${links.length} links`,
   );
   check(
     "TEXT items have content and no url",
-    texts.length > 0 && texts.every((item) => Boolean(item.content) && item.url === null),
+    texts.length > 0 &&
+      texts.every((item) => Boolean(item.content) && item.url === null),
     `${texts.length} text items`,
   );
   check(
@@ -208,6 +223,36 @@ async function testDemoData(): Promise<void> {
     user.items
       .filter((item) => item.itemType.name === "snippet")
       .every((item) => Boolean(item.language)),
+  );
+
+  // A tag is one row per user however many items carry it, so the seeded count
+  // must match the distinct names in the demo data, not the total applications.
+  const expectedTags = new Set(
+    DEMO_COLLECTIONS.flatMap((collection) =>
+      collection.items.flatMap((item) => item.tags ?? []),
+    ),
+  );
+  check(
+    `${expectedTags.size} tags, one row per name`,
+    user.tags.length === expectedTags.size &&
+      user.tags.every((tag) => expectedTags.has(tag.name)),
+    `${user.tags.length} found`,
+  );
+  check(
+    "every item is tagged",
+    user.items.every((item) => item.tags.length > 0),
+  );
+  check(
+    "item tags match the demo data",
+    DEMO_COLLECTIONS.flatMap((collection) => collection.items).every((demo) => {
+      const item = user.items.find((row) => row.title === demo.title);
+      const actual = item?.tags.map(({ tag }) => tag.name).sort();
+
+      return (
+        actual !== undefined &&
+        actual.join() === [...(demo.tags ?? [])].sort().join()
+      );
+    }),
   );
 }
 
@@ -372,11 +417,17 @@ async function testWritesAndRelations(userId: string): Promise<void> {
     "collection join table",
     item.collections[0]?.collection.name === "Test Collection",
   );
-  check("ItemCollection.addedAt default", item.collections[0]?.addedAt instanceof Date);
+  check(
+    "ItemCollection.addedAt default",
+    item.collections[0]?.addedAt instanceof Date,
+  );
   check("tag join table", item.tags[0]?.tag.name === "test-tag");
   check("column defaults", item.isPinned && !item.isFavorite);
   check("timestamps populated", item.createdAt instanceof Date);
-  check("nullable columns stay null", item.url === null && item.fileUrl === null);
+  check(
+    "nullable columns stay null",
+    item.url === null && item.fileUrl === null,
+  );
 
   const pinned = await prisma.item.findMany({
     where: { userId, isPinned: true },
@@ -445,7 +496,9 @@ async function main(): Promise<void> {
   } finally {
     // If an assertion threw mid-run, still remove the throwaway user.
     if (fixtureUserId) {
-      await prisma.user.delete({ where: { id: fixtureUserId } }).catch(() => {});
+      await prisma.user
+        .delete({ where: { id: fixtureUserId } })
+        .catch(() => {});
       console.log("\n  (removed test fixture after failure)");
     }
   }
