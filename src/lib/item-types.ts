@@ -16,9 +16,20 @@ import {
   Terminal,
 } from "lucide-react";
 
-import { itemTypes, type ItemType, type ItemTypeName } from "@/lib/mock-data";
+import { itemTypes, type ItemType } from "@/lib/mock-data";
+import type { SystemItemTypeName as ItemTypeName } from "@/lib/system-item-types";
 
 type IconComponent = typeof Code;
+
+export const TYPE_LABELS: Record<ItemTypeName, string> = {
+  snippet: "Snippets",
+  prompt: "Prompts",
+  command: "Commands",
+  note: "Notes",
+  file: "Files",
+  image: "Images",
+  link: "Links",
+};
 
 export const TYPE_ICONS: Record<ItemTypeName, IconComponent> = {
   snippet: Code,

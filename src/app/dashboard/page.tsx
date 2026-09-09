@@ -4,7 +4,9 @@ import { Clock, Pin } from "lucide-react";
 import { CollectionCard } from "@/components/dashboard/collection-card";
 import { ItemRow } from "@/components/dashboard/item-row";
 import { StatsCards } from "@/components/dashboard/stats-cards";
-import { collections, items } from "@/lib/mock-data";
+import { getCollectionStats, getRecentCollections } from "@/lib/db/collections";
+import { getCurrentUser } from "@/lib/db/user";
+import { items } from "@/lib/mock-data";
 
 export const metadata: Metadata = {
   title: "Dashboard · DevStash",
@@ -13,10 +15,15 @@ export const metadata: Metadata = {
 const RECENT_COLLECTION_LIMIT = 6;
 const RECENT_ITEM_LIMIT = 10;
 
-export default function DashboardPage() {
-  const recentCollections = [...collections]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, RECENT_COLLECTION_LIMIT);
+export default async function DashboardPage() {
+  const user = await getCurrentUser();
+
+  const [recentCollections, collectionStats] = user
+    ? await Promise.all([
+        getRecentCollections(user.id, RECENT_COLLECTION_LIMIT),
+        getCollectionStats(user.id),
+      ])
+    : [[], { collectionCount: 0, favoriteCollectionCount: 0 }];
 
   const pinnedItems = items.filter((item) => item.isPinned);
 
@@ -35,20 +42,24 @@ export default function DashboardPage() {
 
       <StatsCards
         itemCount={items.length}
-        collectionCount={collections.length}
+        collectionCount={collectionStats.collectionCount}
         favoriteItemCount={items.filter((item) => item.isFavorite).length}
-        favoriteCollectionCount={
-          collections.filter((collection) => collection.isFavorite).length
-        }
+        favoriteCollectionCount={collectionStats.favoriteCollectionCount}
       />
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Collections</h2>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {recentCollections.map((collection) => (
-            <CollectionCard key={collection.id} collection={collection} />
-          ))}
-        </div>
+        {recentCollections.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {recentCollections.map((collection) => (
+              <CollectionCard key={collection.id} collection={collection} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            No collections yet. Create one to start stashing.
+          </p>
+        )}
       </section>
 
       <section className="space-y-4">

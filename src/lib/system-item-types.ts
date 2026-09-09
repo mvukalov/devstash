@@ -34,6 +34,11 @@ export interface SystemItemType {
   color: string;
 }
 
+/** Narrows a name read from the database — custom types are a later feature. */
+export function isSystemItemTypeName(name: string): name is SystemItemTypeName {
+  return (SYSTEM_ITEM_TYPE_NAMES as readonly string[]).includes(name);
+}
+
 export const SYSTEM_ITEM_TYPES: SystemItemType[] = [
   { name: "snippet", icon: "Code", color: "#3b82f6" },
   { name: "prompt", icon: "Sparkles", color: "#8b5cf6" },
