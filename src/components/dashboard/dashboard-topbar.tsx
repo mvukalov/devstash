@@ -28,14 +28,15 @@ export function DashboardTopbar() {
         </kbd>
       </div>
 
-      <div className="ml-auto flex items-center gap-2">
-        <Button variant="outline" size="lg">
+      {/* Labels drop to icons below lg so the search field keeps its width. */}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <Button variant="outline" size="lg" aria-label="New collection">
           <FolderPlus />
-          <span className="hidden sm:inline">New Collection</span>
+          <span className="hidden lg:inline">New Collection</span>
         </Button>
-        <Button size="lg">
+        <Button size="lg" aria-label="New item">
           <Plus />
-          <span className="hidden sm:inline">New Item</span>
+          <span className="hidden lg:inline">New Item</span>
         </Button>
       </div>
     </header>
