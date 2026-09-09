@@ -521,6 +521,10 @@ flowchart TB
 - **Main:** grid of color-coded collection cards (background tinted by the most common item type inside); items shown in color-coded cards (border = type color) underneath.
 - **Item drawer:** fast create/view/edit without leaving the page.
 
+### Design References
+
+refer to the screenshots below as a base for the dasboard UI. It dose not to have be exact use it as a refrenece. @context/screenshots/dashboard-ui-main.png @context/screenshots/dashboard-ui-drawer.png
+
 ### Type Colors & Icons
 
 | Type    | Color      | Hex       | Icon (lucide) |
