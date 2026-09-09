@@ -16,6 +16,7 @@ import "dotenv/config";
 
 import { prisma } from "@/lib/prisma";
 import { SYSTEM_ITEM_TYPES } from "@/lib/system-item-types";
+import { DEMO_COLLECTIONS, DEMO_USER } from "../prisma/demo-data";
 
 const GREEN = "[32m";
 const RED = "[31m";
@@ -123,6 +124,161 @@ async function testSystemItemTypes(): Promise<void> {
     })
     .catch(() => true);
   check("partial unique index blocks duplicate system type", rejected);
+}
+
+async function testDemoData(): Promise<void> {
+  section("Demo data");
+
+  const user = await prisma.user.findUnique({
+    where: { email: DEMO_USER.email },
+    include: {
+      collections: { include: { items: true } },
+      items: { include: { itemType: true, collections: true } },
+    },
+  });
+
+  if (!user) {
+    check("demo user seeded", false, "run `npm run db:seed`");
+    return;
+  }
+
+  check("demo user seeded", true, user.email ?? "");
+  check("profile matches spec", user.name === DEMO_USER.name && user.isPro === DEMO_USER.isPro);
+  check("emailVerified set", user.emailVerified instanceof Date);
+  check(
+    "password hashed with bcrypt, 12 rounds",
+    user.hashedPassword?.startsWith("$2b$12$") ?? false,
+  );
+  check(
+    "password never stored in clear",
+    user.hashedPassword !== DEMO_USER.password,
+  );
+
+  const expectedItems = DEMO_COLLECTIONS.reduce(
+    (total, collection) => total + collection.items.length,
+    0,
+  );
+  check(
+    `${DEMO_COLLECTIONS.length} collections`,
+    user.collections.length === DEMO_COLLECTIONS.length,
+    `${user.collections.length} found`,
+  );
+  check(
+    `${expectedItems} items`,
+    user.items.length === expectedItems,
+    `${user.items.length} found`,
+  );
+
+  const names = new Set(user.collections.map((c) => c.name));
+  for (const collection of DEMO_COLLECTIONS) {
+    const actual = user.collections.find((c) => c.name === collection.name);
+    check(
+      `${collection.name} — ${collection.items.length} item(s)`,
+      names.has(collection.name) &&
+        actual?.items.length === collection.items.length,
+      actual ? `${actual.items.length} linked` : "missing",
+    );
+  }
+
+  check(
+    "every item sits in a collection",
+    user.items.every((item) => item.collections.length > 0),
+  );
+  check(
+    "every item uses a system type",
+    user.items.every((item) => item.itemType.userId === null),
+  );
+
+  // contentType must agree with the payload: links carry a url and no content,
+  // text types the reverse. A mismatch here means the seed built a bad row.
+  const links = user.items.filter((item) => item.contentType === "URL");
+  const texts = user.items.filter((item) => item.contentType === "TEXT");
+  check(
+    "URL items have a url and no content",
+    links.length > 0 && links.every((item) => Boolean(item.url) && item.content === null),
+    `${links.length} links`,
+  );
+  check(
+    "TEXT items have content and no url",
+    texts.length > 0 && texts.every((item) => Boolean(item.content) && item.url === null),
+    `${texts.length} text items`,
+  );
+  check(
+    "snippets carry a language",
+    user.items
+      .filter((item) => item.itemType.name === "snippet")
+      .every((item) => Boolean(item.language)),
+  );
+}
+
+/** First non-empty line of a block of content, trimmed to fit one row. */
+function preview(text: string, width = 68): string {
+  const line = text.split("\n").find((candidate) => candidate.trim()) ?? "";
+  const trimmed = line.trim();
+  return trimmed.length > width ? `${trimmed.slice(0, width - 1)}…` : trimmed;
+}
+
+function flags(item: { isPinned: boolean; isFavorite: boolean }): string {
+  const set: string[] = [];
+  if (item.isPinned) set.push("pinned");
+  if (item.isFavorite) set.push("favorite");
+  return set.length > 0 ? ` ${DIM}[${set.join(", ")}]${RESET}` : "";
+}
+
+/**
+ * Reads the seeded demo data back out of the database and prints it, so a run
+ * shows the actual stored rows rather than only asserting counts.
+ */
+async function showDemoData(): Promise<void> {
+  section("Demo data — contents");
+
+  const user = await prisma.user.findUnique({
+    where: { email: DEMO_USER.email },
+    include: {
+      collections: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          defaultType: true,
+          items: {
+            orderBy: { addedAt: "asc" },
+            include: { item: { include: { itemType: true } } },
+          },
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    console.log(`  ${DIM}no demo user — run \`npm run db:seed\`${RESET}`);
+    return;
+  }
+
+  console.log(
+    `  ${user.email} ${DIM}·${RESET} ${user.name} ${DIM}·${RESET} ` +
+      `${user.isPro ? "pro" : "free"}\n`,
+  );
+
+  for (const collection of user.collections) {
+    const favourite = collection.isFavorite ? ` ${DIM}[favorite]${RESET}` : "";
+    console.log(`  ${collection.name}${favourite}`);
+    console.log(`  ${DIM}${collection.description ?? ""}${RESET}`);
+    console.log(
+      `  ${DIM}default: ${collection.defaultType?.name ?? "none"} · ` +
+        `${collection.items.length} item(s)${RESET}`,
+    );
+
+    for (const { item } of collection.items) {
+      const type = item.itemType.name.padEnd(8);
+      console.log(`    ${DIM}${type}${RESET} ${item.title}${flags(item)}`);
+
+      const body = item.url ?? (item.content ? preview(item.content) : "");
+      if (body) {
+        console.log(`    ${" ".repeat(8)} ${DIM}${body}${RESET}`);
+      }
+    }
+
+    console.log("");
+  }
 }
 
 interface Counts {
@@ -272,6 +428,8 @@ async function main(): Promise<void> {
     await testConnection();
     await testSchema();
     await testSystemItemTypes();
+    await testDemoData();
+    await showDemoData();
 
     fixtureUserId = await createFixture(email);
     await testWritesAndRelations(fixtureUserId);
