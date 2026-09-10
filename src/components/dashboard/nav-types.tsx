@@ -18,15 +18,22 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { TYPE_ICONS, TYPE_TEXT_CLASSES, itemTypeSlug } from "@/lib/item-types";
-import type { ItemType } from "@/lib/mock-data";
+import type { ItemTypeCounts } from "@/lib/db/items";
+import {
+  TYPE_ICONS,
+  TYPE_LABELS,
+  TYPE_TEXT_CLASSES,
+  itemTypeSlug,
+} from "@/lib/item-types";
+import { SYSTEM_ITEM_TYPE_NAMES } from "@/lib/system-item-types";
 
 interface NavTypesProps {
-  types: ItemType[];
+  /** Item count per type — the list itself is the fixed set of system types. */
+  counts: ItemTypeCounts;
 }
 
 /** Item types, each linking to its filtered list at `/items/[type]`. */
-export function NavTypes({ types }: NavTypesProps) {
+export function NavTypes({ counts }: NavTypesProps) {
   const pathname = usePathname();
 
   return (
@@ -41,20 +48,20 @@ export function NavTypes({ types }: NavTypesProps) {
         <CollapsibleContent>
           <SidebarGroupContent>
             <SidebarMenu>
-              {types.map((type) => {
-                const Icon = TYPE_ICONS[type.name];
-                const href = `/items/${itemTypeSlug(type.name)}`;
+              {SYSTEM_ITEM_TYPE_NAMES.map((name) => {
+                const Icon = TYPE_ICONS[name];
+                const href = `/items/${itemTypeSlug(name)}`;
 
                 return (
-                  <SidebarMenuItem key={type.id}>
+                  <SidebarMenuItem key={name}>
                     <SidebarMenuButton asChild isActive={pathname === href}>
                       <Link href={href}>
-                        <Icon className={TYPE_TEXT_CLASSES[type.name]} />
-                        <span>{type.label}</span>
+                        <Icon className={TYPE_TEXT_CLASSES[name]} />
+                        <span>{TYPE_LABELS[name]}</span>
                       </Link>
                     </SidebarMenuButton>
                     <SidebarMenuBadge className="text-muted-foreground">
-                      {type.itemCount}
+                      {counts[name]}
                     </SidebarMenuBadge>
                   </SidebarMenuItem>
                 );

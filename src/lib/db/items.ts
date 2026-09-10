@@ -5,6 +5,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import {
+  SYSTEM_ITEM_TYPE_NAMES,
   isSystemItemTypeName,
   type SystemItemTypeName,
 } from "@/lib/system-item-types";
@@ -25,6 +26,9 @@ export interface ItemStats {
   itemCount: number;
   favoriteItemCount: number;
 }
+
+/** How many of the user's items use each system type. Every type is present. */
+export type ItemTypeCounts = Record<SystemItemTypeName, number>;
 
 const ITEM_SELECT = {
   id: true,
@@ -74,6 +78,42 @@ export async function getRecentItems(
   });
 
   return items.map(toSummary);
+}
+
+/**
+ * Item count per system type, for the sidebar badges.
+ *
+ * One grouped query rather than seven counts. Types the user has no items of
+ * are missing from the result, so the tally starts at zero for every type and
+ * the sidebar can render the full list; custom types are skipped, since they
+ * have no colour/icon mapping yet.
+ */
+export async function getItemTypeCounts(
+  userId: string,
+): Promise<ItemTypeCounts> {
+  const [groups, types] = await Promise.all([
+    prisma.item.groupBy({
+      by: ["itemTypeId"],
+      where: { userId },
+      _count: { _all: true },
+    }),
+    prisma.itemType.findMany({ select: { id: true, name: true } }),
+  ]);
+
+  const namesById = new Map(types.map(({ id, name }) => [id, name]));
+  const counts = Object.fromEntries(
+    SYSTEM_ITEM_TYPE_NAMES.map((name) => [name, 0]),
+  ) as ItemTypeCounts;
+
+  for (const group of groups) {
+    const name = namesById.get(group.itemTypeId);
+
+    if (name && isSystemItemTypeName(name)) {
+      counts[name] += group._count._all;
+    }
+  }
+
+  return counts;
 }
 
 export async function getItemStats(userId: string): Promise<ItemStats> {
