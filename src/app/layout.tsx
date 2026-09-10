@@ -26,7 +26,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`dark ${geistSans.variable} ${geistMono.variable} antialiased`}
       style={{ colorScheme: "dark" }}
     >
-      <body className="bg-background text-foreground font-sans">
+      {/*
+        Browser extensions inject attributes into <body> before React hydrates
+        (e.g. `__processed_<uuid>__`), which React reports as a hydration
+        mismatch. This suppresses the warning for this element's own attributes
+        only — a real mismatch inside the app still surfaces.
+      */}
+      <body
+        className="bg-background text-foreground font-sans"
+        suppressHydrationWarning
+      >
         {children}
       </body>
     </html>
