@@ -12,20 +12,29 @@ import {
   SidebarRail,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { collections, currentUser, itemTypes } from "@/lib/mock-data";
+import { getSidebarCollections } from "@/lib/db/collections";
+import { getItemTypeCounts, type ItemTypeCounts } from "@/lib/db/items";
+import { getCurrentUser } from "@/lib/db/user";
+import { SYSTEM_ITEM_TYPE_NAMES } from "@/lib/system-item-types";
 
 const RECENT_COLLECTION_LIMIT = 5;
 
-/**
- * Dashboard sidebar — item types, collections and the account row.
- * Data comes from the mock file until the database lands.
- */
-export function DashboardSidebar() {
-  const favorites = collections.filter((collection) => collection.isFavorite);
-  const recent = collections
-    .filter((collection) => !collection.isFavorite)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, RECENT_COLLECTION_LIMIT);
+const EMPTY_TYPE_COUNTS = Object.fromEntries(
+  SYSTEM_ITEM_TYPE_NAMES.map((name) => [name, 0]),
+) as ItemTypeCounts;
+
+/** Dashboard sidebar — item types, collections and the account row. */
+export async function DashboardSidebar() {
+  const user = await getCurrentUser();
+
+  // Signed out is not reachable yet (getCurrentUser resolves the seeded demo
+  // user), but the sidebar still renders its empty shape rather than throwing.
+  const [{ favorites, recent }, typeCounts] = user
+    ? await Promise.all([
+        getSidebarCollections(user.id, RECENT_COLLECTION_LIMIT),
+        getItemTypeCounts(user.id),
+      ])
+    : [{ favorites: [], recent: [] }, EMPTY_TYPE_COUNTS];
 
   return (
     <Sidebar collapsible="offcanvas">
@@ -39,13 +48,13 @@ export function DashboardSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <NavTypes types={itemTypes} />
+        <NavTypes counts={typeCounts} />
         <SidebarSeparator />
         <NavCollections favorites={favorites} recent={recent} />
       </SidebarContent>
 
       <SidebarFooter className="border-t">
-        <SidebarUser user={currentUser} />
+        <SidebarUser user={user} />
       </SidebarFooter>
 
       <SidebarRail />

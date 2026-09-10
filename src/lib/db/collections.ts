@@ -50,25 +50,30 @@ function rankTypes(names: string[]): SystemItemTypeName[] {
     .map(([name]) => name);
 }
 
-/** The user's most recently created collections, newest first. */
-export async function getRecentCollections(
-  userId: string,
-  limit: number,
+const COLLECTION_SELECT = {
+  id: true,
+  name: true,
+  description: true,
+  isFavorite: true,
+  createdAt: true,
+  items: {
+    select: { item: { select: { itemType: { select: { name: true } } } } },
+  },
+} as const;
+
+/**
+ * Collections newest first, with their types ranked. The single `items` join
+ * covers both the count and the type ranking, so there is no N+1.
+ */
+async function findCollections(
+  where: { userId: string; isFavorite?: boolean },
+  limit?: number,
 ): Promise<CollectionSummary[]> {
   const collections = await prisma.collection.findMany({
-    where: { userId },
+    where,
     orderBy: { createdAt: "desc" },
     take: limit,
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      isFavorite: true,
-      createdAt: true,
-      items: {
-        select: { item: { select: { itemType: { select: { name: true } } } } },
-      },
-    },
+    select: COLLECTION_SELECT,
   });
 
   return collections.map(({ items, ...collection }) => ({
@@ -76,6 +81,42 @@ export async function getRecentCollections(
     itemCount: items.length,
     typeNames: rankTypes(items.map(({ item }) => item.itemType.name)),
   }));
+}
+
+/** The user's most recently created collections, newest first. */
+export async function getRecentCollections(
+  userId: string,
+  limit: number,
+): Promise<CollectionSummary[]> {
+  return findCollections({ userId }, limit);
+}
+
+/** Every collection the user owns, newest first — the `/collections` page. */
+export async function getAllCollections(
+  userId: string,
+): Promise<CollectionSummary[]> {
+  return findCollections({ userId });
+}
+
+export interface SidebarCollections {
+  favorites: CollectionSummary[];
+  recent: CollectionSummary[];
+}
+
+/**
+ * The two sidebar lists. Favourites are excluded from Recent so a collection
+ * never appears twice.
+ */
+export async function getSidebarCollections(
+  userId: string,
+  recentLimit: number,
+): Promise<SidebarCollections> {
+  const [favorites, recent] = await Promise.all([
+    findCollections({ userId, isFavorite: true }),
+    findCollections({ userId, isFavorite: false }, recentLimit),
+  ]);
+
+  return { favorites, recent };
 }
 
 export async function getCollectionStats(

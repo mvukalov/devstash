@@ -16,8 +16,10 @@ import {
   Terminal,
 } from "lucide-react";
 
-import { itemTypes, type ItemType } from "@/lib/mock-data";
-import type { SystemItemTypeName as ItemTypeName } from "@/lib/system-item-types";
+import {
+  isSystemItemTypeName,
+  type SystemItemTypeName as ItemTypeName,
+} from "@/lib/system-item-types";
 
 type IconComponent = typeof Code;
 
@@ -71,18 +73,25 @@ export const TYPE_TILE_CLASSES: Record<ItemTypeName, string> = {
   link: "bg-type-link/10 text-type-link",
 };
 
+/** Solid fill, for the dominant-type dot beside a collection in the sidebar. */
+export const TYPE_DOT_CLASSES: Record<ItemTypeName, string> = {
+  snippet: "bg-type-snippet",
+  prompt: "bg-type-prompt",
+  command: "bg-type-command",
+  note: "bg-type-note",
+  file: "bg-type-file",
+  image: "bg-type-image",
+  link: "bg-type-link",
+};
+
 /** URL slug for a type — the plural used by `/items/[type]`, e.g. "snippets". */
 export function itemTypeSlug(name: ItemTypeName): string {
   return `${name}s`;
 }
 
-/** Look up a type by id. Ids come from the same seed data, so a miss is a bug. */
-export function getItemType(id: string): ItemType {
-  const type = itemTypes.find((itemType) => itemType.id === id);
+/** Reverse of `itemTypeSlug` — null when the slug names no system type. */
+export function itemTypeFromSlug(slug: string): ItemTypeName | null {
+  const name = slug.replace(/s$/, "");
 
-  if (!type) {
-    throw new Error(`Unknown item type: ${id}`);
-  }
-
-  return type;
+  return isSystemItemTypeName(name) && itemTypeSlug(name) === slug ? name : null;
 }
