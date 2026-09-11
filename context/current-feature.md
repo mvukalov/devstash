@@ -1,4 +1,4 @@
-# Current Feature: Add Pro Badge to Sidebar
+# Current Feature
 
 <!-- Feature Name -->
 
@@ -6,27 +6,15 @@
 
 <!-- Not Started|In Progress|Completed -->
 
-In Progress
+Completed
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-- Render a plan badge in the sidebar user footer, next to the account name
-- "Pro" when `user.isPro` is true, "Free" when false — accent styling for Pro, muted for Free
-- Use the shadcn `badge` component (install if missing); no inline styles
-- Hide the badge when there is no user (the "Signed out" fallback)
-- Keep the name/email lines truncating at narrow widths — no wrapping, no pushed-out email
-- Display only: no upgrade flow, link, or click target
-
 ## Notes
 
 <!-- Any extra notes -->
-
-- Spec: @context/features/add-pro-badge-sidebar.md
-- Presentation only — `User.isPro` already exists and `getCurrentUser()` already selects it, so no schema change, migration, or new query
-- The seeded demo user is `isPro: false`, so Free is the default state; verify Pro by flipping that row and reverting
-- Billing gating (`canAccess(feature, user)`) stays a later milestone
 
 ## History
 
@@ -81,3 +69,7 @@ In Progress
 <!-- 12. Stats & sidebar — real data (stats-sidebar-spec.md) -->
 
 12. Stats and sidebar from the database (@context/features/stats-sidebar-spec.md) — the sidebar now reads from Neon, which removes the last `src/lib/mock-data.ts` import in `src/`; the stats cards needed no work, since step 11 had already moved all four counters onto the database, so the spec's first requirement was verified rather than implemented; `DashboardSidebar` became an async server component resolving `getCurrentUser()` itself rather than taking props, because `DashboardShell` renders it for `/dashboard`, `/items` and now `/collections` and would otherwise have to thread the data through every layout; `NavTypes` no longer takes a list of types at all — the seven system types are a fixed set, so it maps `SYSTEM_ITEM_TYPE_NAMES` and takes only an `ItemTypeCounts` record, which keeps a type with zero items visible instead of silently dropping it; that record comes from a new `getItemTypeCounts(userId)` in `src/lib/db/items.ts`, one `groupBy` plus one `itemType` lookup rather than seven counts, seeded to zero for every system type so the sidebar always renders the full list; `src/lib/db/collections.ts` gained a private `findCollections(where, limit)` holding the shared select and the `rankTypes` mapping, with `getRecentCollections`, the new `getAllCollections` and the new `getSidebarCollections(userId, recentLimit)` on top — the last returning favourites and non-favourites separately so a favourite cannot appear in both sidebar lists; `NavCollections` keeps the star on favourites and gives each recent row a `DominantTypeDot`, a circle taking `TYPE_DOT_CLASSES[typeNames[0]]`, so it reuses the same ranking that already drives the collection card's left border rather than recomputing a dominant type, and falls back to a muted ring for an empty collection; the dot sits inside a `size-4` box so the labels line up with the icon-led favourites above it; "View all collections" links to a new `/collections` route (page + layout reusing `DashboardShell` and `CollectionCard`), added because the spec's link would otherwise 404; `/items/[type]` moved off the mock `itemTypes` lookup onto a new `itemTypeFromSlug` in `lib/item-types.ts` — the reverse of `itemTypeSlug`, rejecting a slug like `note` that is not the exact plural — with its count coming from `getItemTypeCounts`, so the sidebar's type links now resolve against real data; `getItemType(id)` deleted as the last mock consumer in `lib/item-types.ts`, and `SidebarUser` retyped from the mock `User` to `CurrentUser`, whose `name`/`email` are nullable, falling back name -> email -> "Signed out"; verified in the browser (type counts 4/3/5/0/0/0/6 summing to the 18-item stat, both favourites starred, the three recent dots matching their cards' border colours, the active state on "View all collections", `/items/notes` reading 0 items and `/items/bogus` returning 404) with a clean console and `npm run build` and `npm run lint` passing; `src/lib/mock-data.ts` deleted — with the sidebar moved over nothing imported it any more, and the build and lint stay clean without it
+
+<!-- 13. Pro badge in sidebar (add-pro-badge-sidebar.md) -->
+
+13. Plan badge in the sidebar user footer (@context/features/add-pro-badge-sidebar.md) — the spec did not exist when the feature was loaded, so it was drafted first in the same shape as the others; `SidebarUser` now shows a "Pro" or "Free" badge beside the account name, driven by `User.isPro`, which `getCurrentUser()` already selected, so there is no schema change, migration or new query; it uses the shadcn `Badge` that was already in `src/components/ui`, so nothing was installed — the filled `default` variant for Pro and `outline` for Free; the name line became a `flex min-w-0` row where the name keeps `truncate` and the badge keeps its own `shrink-0`/`whitespace-nowrap`, so a long name takes the ellipsis rather than squeezing the badge, the email or the Settings button; the badge renders only when a user exists, since the "Signed out" fallback has no plan to report, and it is a plain `span` with no link or upgrade flow; verified in the browser — Free outlined beside "Demo User", Pro filled after temporarily setting the demo user's `isPro` through `prisma db execute` (a throwaway `tsx` script in the scratchpad could not resolve the project's modules from outside the repo), and a temporary long name truncating to "Demo User Wi…" with everything else in place — with a clean console on every load, both columns restored and confirmed by a fresh reload, and `npm run build` and `npm run lint` passing; the signed-out path was not exercised in the browser, since that means breaking `getCurrentUser()`, so it rests on the `user ?` conditional alone; review flagged one edge left out of scope: a user with neither name nor email falls back to the "Signed out" label yet still gets a badge, a quirk of the pre-existing fallback text rather than of the badge
