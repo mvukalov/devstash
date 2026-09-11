@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Add Pro Badge to Sidebar
 
 <!-- Feature Name -->
 
@@ -6,15 +6,27 @@
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
+- Render a plan badge in the sidebar user footer, next to the account name
+- "Pro" when `user.isPro` is true, "Free" when false — accent styling for Pro, muted for Free
+- Use the shadcn `badge` component (install if missing); no inline styles
+- Hide the badge when there is no user (the "Signed out" fallback)
+- Keep the name/email lines truncating at narrow widths — no wrapping, no pushed-out email
+- Display only: no upgrade flow, link, or click target
+
 ## Notes
 
 <!-- Any extra notes -->
+
+- Spec: @context/features/add-pro-badge-sidebar.md
+- Presentation only — `User.isPro` already exists and `getCurrentUser()` already selects it, so no schema change, migration, or new query
+- The seeded demo user is `isPro: false`, so Free is the default state; verify Pro by flipping that row and reverting
+- Billing gating (`canAccess(feature, user)`) stays a later milestone
 
 ## History
 
