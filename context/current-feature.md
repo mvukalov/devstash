@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Pro Badge on Files and Images Types
 
 <!-- Feature Name -->
 
@@ -6,15 +6,24 @@
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
+- Show a PRO badge next to the Files and Images types in the sidebar Types list
+- Use the shadcn `Badge` component, kept clean and subtle
+- "PRO" all uppercase
+- Remove the Free/Pro plan badge from the sidebar account footer, added earlier from a misread spec
+
 ## Notes
 
 <!-- Any extra notes -->
+
+- Spec: @context/features/add-pro-badge-sidebar.md, copied from `.claude/skills/feature/add-pro-padge-sidebar.md` (the typo in that filename is why the original was not found)
+- `file` and `image` are the Pro-only system types per @context/project-overview.md (section 7)
+- Display only — the badge marks a Pro-gated type, it enforces nothing
 
 ## History
 

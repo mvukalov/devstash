@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
@@ -25,7 +26,10 @@ import {
   TYPE_TEXT_CLASSES,
   itemTypeSlug,
 } from "@/lib/item-types";
-import { SYSTEM_ITEM_TYPE_NAMES } from "@/lib/system-item-types";
+import {
+  SYSTEM_ITEM_TYPE_NAMES,
+  isProItemTypeName,
+} from "@/lib/system-item-types";
 
 interface NavTypesProps {
   /** Item count per type — the list itself is the fixed set of system types. */
@@ -58,6 +62,15 @@ export function NavTypes({ counts }: NavTypesProps) {
                       <Link href={href}>
                         <Icon className={TYPE_TEXT_CLASSES[name]} />
                         <span>{TYPE_LABELS[name]}</span>
+                        {/* Marks a Pro-only type; it gates nothing on its own. */}
+                        {isProItemTypeName(name) ? (
+                          <Badge
+                            variant="outline"
+                            className="text-muted-foreground h-4 px-1 text-[10px] tracking-wide uppercase"
+                          >
+                            Pro
+                          </Badge>
+                        ) : null}
                       </Link>
                     </SidebarMenuButton>
                     <SidebarMenuBadge className="text-muted-foreground">
