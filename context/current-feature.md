@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Item Recent-List Index
 
 <!-- Feature Name -->
 
@@ -6,15 +6,25 @@
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
+- Add `@@index([userId, updatedAt])` to the `Item` model in `prisma/schema.prisma`
+- Create it through `prisma migrate dev` (never `db push`), committed with the schema change
+- No application code changes
+
 ## Notes
 
 <!-- Any extra notes -->
+
+- From the codebase scan (2026-09-14): `getRecentItems` and `getPinnedItems` filter by `userId` and sort by `updatedAt desc`, and no existing index covers the sort
+- No measurable gain with the 18 demo items; it is for users with many items (Pro has no limit), and cheaper to build while tables are small, since Prisma's `CREATE INDEX` locks writes while it runs
+- The `Collection` `[userId, createdAt]` index was deliberately skipped: users have few collections, so that sort stays trivial
+- The existing `[userId]` index stays; dropping it is a separate decision
+- The migration must not touch the hand-written partial unique index on `ItemType`
 
 ## History
 
