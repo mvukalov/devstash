@@ -23,8 +23,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     // toggle is a later milestone.
     <html
       lang="en"
-      className={`dark ${geistSans.variable} ${geistMono.variable} antialiased`}
-      style={{ colorScheme: "dark" }}
+      className={`dark [color-scheme:dark] ${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       {/*
         Browser extensions inject attributes into <body> before React hydrates

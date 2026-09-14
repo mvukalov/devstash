@@ -129,6 +129,7 @@ function DominantTypeDot({ collection }: { collection: CollectionSummary }) {
     // The size-4 box matches an icon's footprint, so the labels in the Recent
     // and Favorites lists line up with each other.
     <span
+      role="img"
       aria-label={dominantType ? TYPE_LABELS[dominantType] : "No items"}
       className="flex size-4 shrink-0 items-center justify-center"
     >

@@ -13,15 +13,10 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { getSidebarCollections } from "@/lib/db/collections";
-import { getItemTypeCounts, type ItemTypeCounts } from "@/lib/db/items";
+import { emptyItemTypeCounts, getItemTypeCounts } from "@/lib/db/items";
 import { getCurrentUser } from "@/lib/db/user";
-import { SYSTEM_ITEM_TYPE_NAMES } from "@/lib/system-item-types";
 
 const RECENT_COLLECTION_LIMIT = 5;
-
-const EMPTY_TYPE_COUNTS = Object.fromEntries(
-  SYSTEM_ITEM_TYPE_NAMES.map((name) => [name, 0]),
-) as ItemTypeCounts;
 
 /** Dashboard sidebar — item types, collections and the account row. */
 export async function DashboardSidebar() {
@@ -34,7 +29,7 @@ export async function DashboardSidebar() {
         getSidebarCollections(user.id, RECENT_COLLECTION_LIMIT),
         getItemTypeCounts(user.id),
       ])
-    : [{ favorites: [], recent: [] }, EMPTY_TYPE_COUNTS];
+    : [{ favorites: [], recent: [] }, emptyItemTypeCounts()];
 
   return (
     <Sidebar collapsible="offcanvas">

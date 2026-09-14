@@ -3,6 +3,9 @@
  *
  * Server-only: these run in server components via the Prisma singleton.
  */
+import "server-only";
+
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   SYSTEM_ITEM_TYPE_NAMES,
@@ -26,19 +29,15 @@ export interface CollectionStats {
   favoriteCollectionCount: number;
 }
 
+type TypeCounts = Map<SystemItemTypeName, number>;
+
 /**
- * Orders the types found in a collection by how many items use each, so the
- * first entry is the dominant type. Ties fall back to the canonical order in
+ * Orders a collection's types by how many items use each, so the first entry
+ * is the dominant type. Ties fall back to the canonical order in
  * SYSTEM_ITEM_TYPE_NAMES, which keeps the icon row stable between renders.
  */
-function rankTypes(names: string[]): SystemItemTypeName[] {
-  const counts = new Map<SystemItemTypeName, number>();
-
-  for (const name of names) {
-    // Custom types are a later Pro feature and have no colour/icon mapping yet.
-    if (!isSystemItemTypeName(name)) continue;
-    counts.set(name, (counts.get(name) ?? 0) + 1);
-  }
+function rankTypes(counts: TypeCounts | undefined): SystemItemTypeName[] {
+  if (!counts) return [];
 
   return [...counts.entries()]
     .sort(
@@ -50,20 +49,57 @@ function rankTypes(names: string[]): SystemItemTypeName[] {
     .map(([name]) => name);
 }
 
+interface TypeCountRow {
+  collectionId: string;
+  name: string;
+  count: number;
+}
+
+/**
+ * Item count per type for each collection, keyed by collection id. One grouped
+ * query, so the database returns a row per (collection, type) rather than one
+ * per item.
+ */
+async function getTypeCountsByCollection(
+  collectionIds: string[],
+): Promise<Map<string, TypeCounts>> {
+  const byCollection = new Map<string, TypeCounts>();
+  if (collectionIds.length === 0) return byCollection;
+
+  const rows = await prisma.$queryRaw<TypeCountRow[]>`
+    SELECT ic."collectionId", it."name", COUNT(*)::int AS "count"
+    FROM "ItemCollection" ic
+    JOIN "Item" i ON i."id" = ic."itemId"
+    JOIN "ItemType" it ON it."id" = i."itemTypeId"
+    WHERE ic."collectionId" IN (${Prisma.join(collectionIds)})
+    GROUP BY ic."collectionId", it."name"
+  `;
+
+  for (const { collectionId, name, count } of rows) {
+    // Custom types are a later Pro feature and have no colour/icon mapping yet.
+    if (!isSystemItemTypeName(name)) continue;
+
+    const counts: TypeCounts = byCollection.get(collectionId) ?? new Map();
+    counts.set(name, count);
+    byCollection.set(collectionId, counts);
+  }
+
+  return byCollection;
+}
+
 const COLLECTION_SELECT = {
   id: true,
   name: true,
   description: true,
   isFavorite: true,
   createdAt: true,
-  items: {
-    select: { item: { select: { itemType: { select: { name: true } } } } },
-  },
+  _count: { select: { items: true } },
 } as const;
 
 /**
- * Collections newest first, with their types ranked. The single `items` join
- * covers both the count and the type ranking, so there is no N+1.
+ * Collections newest first, with their types ranked. Two queries however many
+ * collections or items there are: the collections with their item counts, then
+ * the grouped type counts for all of them.
  */
 async function findCollections(
   where: { userId: string; isFavorite?: boolean },
@@ -76,10 +112,14 @@ async function findCollections(
     select: COLLECTION_SELECT,
   });
 
-  return collections.map(({ items, ...collection }) => ({
+  const typeCounts = await getTypeCountsByCollection(
+    collections.map(({ id }) => id),
+  );
+
+  return collections.map(({ _count, ...collection }) => ({
     ...collection,
-    itemCount: items.length,
-    typeNames: rankTypes(items.map(({ item }) => item.itemType.name)),
+    itemCount: _count.items,
+    typeNames: rankTypes(typeCounts.get(collection.id)),
   }));
 }
 

@@ -3,6 +3,11 @@
  *
  * Server-only: these run in server components via the Prisma singleton.
  */
+import "server-only";
+
+import { cache } from "react";
+
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   SYSTEM_ITEM_TYPE_NAMES,
@@ -41,12 +46,9 @@ const ITEM_SELECT = {
   tags: { select: { tag: { select: { name: true } } } },
 } as const;
 
-type ItemRow = {
-  itemType: { name: string };
-  tags: { tag: { name: string } }[];
-} & Omit<ItemSummary, "typeName" | "tags">;
+type ItemRecord = Prisma.ItemGetPayload<{ select: typeof ITEM_SELECT }>;
 
-function toSummary({ itemType, tags, ...item }: ItemRow): ItemSummary {
+function toSummary({ itemType, tags, ...item }: ItemRecord): ItemSummary {
   return {
     ...item,
     typeName: isSystemItemTypeName(itemType.name) ? itemType.name : null,
@@ -80,6 +82,13 @@ export async function getRecentItems(
   return items.map(toSummary);
 }
 
+/** A zero count for every system type — the starting tally and the signed-out fallback. */
+export function emptyItemTypeCounts(): ItemTypeCounts {
+  return Object.fromEntries(
+    SYSTEM_ITEM_TYPE_NAMES.map((name) => [name, 0]),
+  ) as ItemTypeCounts;
+}
+
 /**
  * Item count per system type, for the sidebar badges.
  *
@@ -87,8 +96,11 @@ export async function getRecentItems(
  * are missing from the result, so the tally starts at zero for every type and
  * the sidebar can render the full list; custom types are skipped, since they
  * have no colour/icon mapping yet.
+ *
+ * Wrapped in `cache()` because the sidebar and `/items/[type]` both ask for it
+ * in the same request.
  */
-export async function getItemTypeCounts(
+export const getItemTypeCounts = cache(async function getItemTypeCounts(
   userId: string,
 ): Promise<ItemTypeCounts> {
   const [groups, types] = await Promise.all([
@@ -97,13 +109,14 @@ export async function getItemTypeCounts(
       where: { userId },
       _count: { _all: true },
     }),
-    prisma.itemType.findMany({ select: { id: true, name: true } }),
+    prisma.itemType.findMany({
+      where: { userId: null },
+      select: { id: true, name: true },
+    }),
   ]);
 
   const namesById = new Map(types.map(({ id, name }) => [id, name]));
-  const counts = Object.fromEntries(
-    SYSTEM_ITEM_TYPE_NAMES.map((name) => [name, 0]),
-  ) as ItemTypeCounts;
+  const counts = emptyItemTypeCounts();
 
   for (const group of groups) {
     const name = namesById.get(group.itemTypeId);
@@ -114,7 +127,7 @@ export async function getItemTypeCounts(
   }
 
   return counts;
-}
+});
 
 export async function getItemStats(userId: string): Promise<ItemStats> {
   const [itemCount, favoriteItemCount] = await Promise.all([
