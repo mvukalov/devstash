@@ -1,4 +1,4 @@
-# Current Feature: Item Recent-List Index
+# Current Feature
 
 <!-- Feature Name -->
 
@@ -6,25 +6,15 @@
 
 <!-- Not Started|In Progress|Completed -->
 
-In Progress
+Completed
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-- Add `@@index([userId, updatedAt])` to the `Item` model in `prisma/schema.prisma`
-- Create it through `prisma migrate dev` (never `db push`), committed with the schema change
-- No application code changes
-
 ## Notes
 
 <!-- Any extra notes -->
-
-- From the codebase scan (2026-09-14): `getRecentItems` and `getPinnedItems` filter by `userId` and sort by `updatedAt desc`, and no existing index covers the sort
-- No measurable gain with the 18 demo items; it is for users with many items (Pro has no limit), and cheaper to build while tables are small, since Prisma's `CREATE INDEX` locks writes while it runs
-- The `Collection` `[userId, createdAt]` index was deliberately skipped: users have few collections, so that sort stays trivial
-- The existing `[userId]` index stays; dropping it is a separate decision
-- The migration must not touch the hand-written partial unique index on `ItemType`
 
 ## History
 
@@ -91,3 +81,7 @@ In Progress
 <!-- 15. Codebase scan quick wins (no spec file) -->
 
 15. Codebase scan quick wins (no spec file; goals came from a `codebase-scanner` audit on 2026-09-14) — low-risk fixes only, with no schema change, migration or UI change; authentication stayed out of scope, as did the `[userId, updatedAt]` / `[userId, createdAt]` indexes (they need a migration) and extracting shared `CollectionGrid` / collapsible nav group components; `findCollections` in `src/lib/db/collections.ts` no longer loads every `ItemCollection -> Item -> ItemType` row just to count them in JS — `itemCount` comes from `_count` and the type ranking from a new `getTypeCountsByCollection`, one parameterised `$queryRaw` grouped by collection and type name over the returned ids (skipped when there are none), so each call is two queries whose payload no longer grows with item count; strictly this was over-fetching rather than a true N+1, since Prisma already batched the nested relation; `rankTypes` now takes the count map but keeps the same order (most-used first, ties in `SYSTEM_ITEM_TYPE_NAMES` order, custom types skipped); `getCurrentUser` and `getItemTypeCounts` are wrapped in React `cache()` so the sidebar and page share one result per request (the saving itself was not measured); `getItemTypeCounts` reads system types only (`userId: null`); `server-only` installed and imported in each `src/lib/db/*.ts`, but not in `src/lib/prisma.ts`, because `prisma/seed.ts` and `scripts/test-db.ts` import it under `tsx`, where `server-only` throws; the inline `colorScheme` style on `<html>` became `[color-scheme:dark]`; the hand-written `ItemRow` type in `items.ts` became `ItemRecord`, derived with `Prisma.ItemGetPayload` from `ITEM_SELECT`; a shared `emptyItemTypeCounts()` replaced the sidebar's `EMPTY_TYPE_COUNTS`; a no-op `.padEnd(2)` was removed from the seed and `role="img"` added to `DominantTypeDot` so its `aria-label` is announced; a first attempt stalled on a stray `cat >` waiting on stdin, so the collections rewrite was redone with a direct file write; verified in the browser against the user's dev server on :3000 — 5 collections at 4/4/4/3/3 items with unchanged border colours and icon order (DevOps: Links, then Snippets and Commands tied in canonical order), sidebar counts 4/3/5/0/0/0/6, `/collections` unchanged, `/items/snippets` 200 and `/items/bogus` 404, computed `color-scheme` still dark with no inline style, clean console — with `npm run build`, `npm run lint`, `npx tsc --noEmit` and `npm run db:test` passing
+
+<!-- 16. Item recent-list index (no spec file) -->
+
+16. Item recent-list index (no spec file; follow-up to the step 15 codebase scan) — `@@index([userId, updatedAt])` added to `Item` in `prisma/schema.prisma` through `prisma migrate dev` as `20260914133239_item_user_updated_at_index`, a single `CREATE INDEX "Item_userId_updatedAt_idx"`, generated with `--create-only` first so the SQL could be read before it was applied, with no application code changes; it is groundwork rather than a speed-up — with 18 demo items Postgres would still read the whole table, but the index is cheap to build while tables are small, whereas Prisma's non-concurrent `CREATE INDEX` locks writes on a large production table; confirmed usable with `EXPLAIN` under `enable_seqscan = off`: `getRecentItems`' query becomes an `Index Scan Backward` under `LIMIT 10` with no separate sort, while `getPinnedItems` keeps using `Item_userId_isPinned_idx` plus a sort, which is fine since few items are pinned (the feature notes had claimed the index covered both); the `Collection` `[userId, createdAt]` index was deliberately skipped because users hold few collections, and the now-redundant `Item_userId_idx` was left in place as a separate decision; the hand-written partial unique index `ItemType_system_name_key` confirmed untouched in `pg_indexes`; `prisma migrate status` reports 3 migrations in sync; `/dashboard`, `/collections` and `/items/links` return 200 on the dev server, and `npm run build`, `npm run lint` and `npm run db:test` pass; production needs `prisma migrate deploy` for the index to exist there
