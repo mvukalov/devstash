@@ -6,6 +6,10 @@
  * authentication lands — every caller already treats the result as "the current
  * user", so nothing above this file needs to change.
  */
+import "server-only";
+
+import { cache } from "react";
+
 import { prisma } from "@/lib/prisma";
 
 const DEMO_USER_EMAIL = "demo@devstash.io";
@@ -18,9 +22,15 @@ export interface CurrentUser {
   isPro: boolean;
 }
 
-export async function getCurrentUser(): Promise<CurrentUser | null> {
-  return prisma.user.findUnique({
-    where: { email: DEMO_USER_EMAIL },
-    select: { id: true, name: true, email: true, image: true, isPro: true },
-  });
-}
+/**
+ * Cached per request: the sidebar and the page both resolve the user, and
+ * should share one lookup.
+ */
+export const getCurrentUser = cache(
+  async function getCurrentUser(): Promise<CurrentUser | null> {
+    return prisma.user.findUnique({
+      where: { email: DEMO_USER_EMAIL },
+      select: { id: true, name: true, email: true, image: true, isPro: true },
+    });
+  },
+);

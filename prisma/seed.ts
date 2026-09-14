@@ -183,9 +183,7 @@ async function seedDemoData(
       itemCount += 1;
     }
 
-    console.log(
-      `  ${collection.name} — ${collection.items.length} item(s)`.padEnd(2),
-    );
+    console.log(`  ${collection.name} — ${collection.items.length} item(s)`);
   }
 
   console.log(
