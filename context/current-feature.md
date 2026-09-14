@@ -1,4 +1,4 @@
-# Current Feature: Pro Badge on Files and Images Types
+# Current Feature
 
 <!-- Feature Name -->
 
@@ -6,24 +6,15 @@
 
 <!-- Not Started|In Progress|Completed -->
 
-In Progress
+Completed
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-- Show a PRO badge next to the Files and Images types in the sidebar Types list
-- Use the shadcn `Badge` component, kept clean and subtle
-- "PRO" all uppercase
-- Remove the Free/Pro plan badge from the sidebar account footer, added earlier from a misread spec
-
 ## Notes
 
 <!-- Any extra notes -->
-
-- Spec: @context/features/add-pro-badge-sidebar.md, copied from `.claude/skills/feature/add-pro-padge-sidebar.md` (the typo in that filename is why the original was not found)
-- `file` and `image` are the Pro-only system types per @context/project-overview.md (section 7)
-- Display only — the badge marks a Pro-gated type, it enforces nothing
 
 ## History
 
@@ -82,3 +73,7 @@ In Progress
 <!-- 13. Pro badge in sidebar (add-pro-badge-sidebar.md) -->
 
 13. Plan badge in the sidebar user footer (@context/features/add-pro-badge-sidebar.md) — the spec did not exist when the feature was loaded, so it was drafted first in the same shape as the others; `SidebarUser` now shows a "Pro" or "Free" badge beside the account name, driven by `User.isPro`, which `getCurrentUser()` already selected, so there is no schema change, migration or new query; it uses the shadcn `Badge` that was already in `src/components/ui`, so nothing was installed — the filled `default` variant for Pro and `outline` for Free; the name line became a `flex min-w-0` row where the name keeps `truncate` and the badge keeps its own `shrink-0`/`whitespace-nowrap`, so a long name takes the ellipsis rather than squeezing the badge, the email or the Settings button; the badge renders only when a user exists, since the "Signed out" fallback has no plan to report, and it is a plain `span` with no link or upgrade flow; verified in the browser — Free outlined beside "Demo User", Pro filled after temporarily setting the demo user's `isPro` through `prisma db execute` (a throwaway `tsx` script in the scratchpad could not resolve the project's modules from outside the repo), and a temporary long name truncating to "Demo User Wi…" with everything else in place — with a clean console on every load, both columns restored and confirmed by a fresh reload, and `npm run build` and `npm run lint` passing; the signed-out path was not exercised in the browser, since that means breaking `getCurrentUser()`, so it rests on the `user ?` conditional alone; review flagged one edge left out of scope: a user with neither name nor email falls back to the "Signed out" label yet still gets a badge, a quirk of the pre-existing fallback text rather than of the badge
+
+<!-- 14. PRO badge on Pro-only types (add-pro-badge-sidebar.md) -->
+
+14. PRO badge on the Files and Images types (@context/features/add-pro-badge-sidebar.md) — this is step 13 done against the spec that was actually written: the original sat in `.claude/skills/feature/add-pro-padge-sidebar.md`, whose filename typo ("padge") kept it out of the `context/features/` lookup, so step 13 was built from a drafted stand-in and put a Free/Pro plan badge in the account footer instead; the real spec asks for a badge on the two Pro-gated *types*, so `NavTypes` now renders a small outlined `Badge` reading PRO after the label on Files and Images, uppercased in CSS and left at `text-[10px]`/`h-4` so it reads as a marker beside the label rather than competing with the item count still sitting in `SidebarMenuBadge` on the right; which types are Pro comes from a new `PRO_ITEM_TYPE_NAMES` in `src/lib/system-item-types.ts` — `["file", "image"] as const satisfies readonly SystemItemTypeName[]`, so a typo cannot name a type that does not exist — with `isProItemTypeName` beside the existing `isSystemItemTypeName`, keeping the monetization table's Pro set next to the system type list it draws from rather than inline in a component; the footer badge from step 13 was removed in the same commit, taking the `Badge` import with it and restoring `SidebarUser` to its pre-step-13 shape, and the drafted spec file was overwritten with the real one (plus a note naming the misnamed source); the first run 500'd because the component called `isProItemTypeName` without importing it — caught from the dev server log, not from lint, which stayed clean throughout; verified in the browser against the user's own dev server on port 3000 (a second `next dev` refuses to start for the same project, so the existing one was left running and never killed): PRO on Files and Images only, the other five types untouched, counts still 4/3/5/0/0/0/6, the footer back to name, email and Settings, and a clean console; `npx tsc --noEmit` was used for the type check while that server was up, with the full `npm run build` run before committing; the badge's text node stays "Pro" with the uppercase applied in CSS, so a screen reader announces "Pro" rather than spelling it out
