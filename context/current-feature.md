@@ -1,41 +1,20 @@
 # Current Feature
 
-# Codebase Scan Quick Wins
+<!-- Feature Name -->
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-In Progress
+Completed
 
 ## Goals
 
-Low-risk fixes from the `codebase-scanner` audit (2026-09-14). The UI and behaviour stay the same, and nothing changes in the schema or needs a migration.
-
-### Queries
-
-1. **Collection over-fetching (the "N+1" finding)** — `findCollections` in `src/lib/db/collections.ts` loads every `ItemCollection → Item → ItemType` row for each collection, only to count them in JS (`items.length`, `rankTypes`). `getAllCollections` and the sidebar favourites query have no limit, so the payload grows with total item count.
-   - Use `_count: { select: { items: true } }` for `itemCount`.
-   - Get the per-collection type counts from one grouped query over the returned collection ids (`GROUP BY collectionId, type name` via a parameterised `prisma.$queryRaw`), so the database returns counts rather than one row per item.
-   - Keep `rankTypes` behaviour identical: most-used type first, ties in `SYSTEM_ITEM_TYPE_NAMES` order, custom types skipped.
-   - Still a fixed number of queries per call (no per-collection loop).
-2. **Duplicate reads per request** — wrap `getCurrentUser()` (`src/lib/db/user.ts`) and `getItemTypeCounts()` (`src/lib/db/items.ts`) in React's `cache()`, so the sidebar and the page share one result per request. Today `/items/[type]` runs the type-count queries twice.
-3. **`getItemTypeCounts` reads every user's item types** — add `where: { userId: null }` to the `itemType.findMany` in `src/lib/db/items.ts`; only system names are used.
-
-### Small cleanups
-
-4. **Server-only guard** — install `server-only` and add `import "server-only";` to each `src/lib/db/*.ts`, so a value import from a client component fails the build. Not added to `src/lib/prisma.ts`: `prisma/seed.ts` and `scripts/test-db.ts` import it under `tsx`, where `server-only` throws.
-5. **Inline style** — replace `style={{ colorScheme: "dark" }}` on `<html>` in `src/app/layout.tsx` with a Tailwind class (`[color-scheme:dark]`).
-6. **Derived row type** — replace the hand-written `type ItemRow` in `src/lib/db/items.ts` with `Prisma.ItemGetPayload<{ select: typeof ITEM_SELECT }>`, renamed `ItemRecord` so it no longer shares a name with the `ItemRow` component.
-7. **One empty type-count record** — export an `emptyItemTypeCounts()` helper from `src/lib/db/items.ts` and use it in both `getItemTypeCounts` and `dashboard-sidebar.tsx` (drop `EMPTY_TYPE_COUNTS`).
-8. **No-op `.padEnd(2)`** — remove it from the log line in `prisma/seed.ts`.
-9. **Type dot label** — add `role="img"` to the `DominantTypeDot` span in `src/components/dashboard/nav-collections.tsx`, so screen readers announce its `aria-label`.
+<!-- Goals & requirements -->
 
 ## Notes
 
-- Out of scope: authentication (not implemented yet — `getCurrentUser()` keeps resolving the demo user), the `[userId, updatedAt]` / `[userId, createdAt]` indexes (they need a migration), and extracting the shared `CollectionGrid` and collapsible nav group components (a refactor, not a quick win).
-- Strictly, goal 1 is over-fetching rather than a true N+1: Prisma already batches the nested relation, so the query count is fixed, but the returned rows grow with the number of items. The comment on `findCollections` claiming "no N+1" should be updated to describe the new shape.
-- Verify in the browser against the seeded demo user: 5 collections with the same item counts, border colours and icon order as now; sidebar type counts still 4/3/5/0/0/0/6; `/collections` and `/items/[type]` unchanged. `npm run build`, `npm run lint` and `scripts/test-db.ts` must pass.
+<!-- Any extra notes -->
 
 ## History
 
@@ -98,3 +77,7 @@ Low-risk fixes from the `codebase-scanner` audit (2026-09-14). The UI and behavi
 <!-- 14. PRO badge on Pro-only types (add-pro-badge-sidebar.md) -->
 
 14. PRO badge on the Files and Images types (@context/features/add-pro-badge-sidebar.md) — this is step 13 done against the spec that was actually written: the original sat in `.claude/skills/feature/add-pro-padge-sidebar.md`, whose filename typo ("padge") kept it out of the `context/features/` lookup, so step 13 was built from a drafted stand-in and put a Free/Pro plan badge in the account footer instead; the real spec asks for a badge on the two Pro-gated *types*, so `NavTypes` now renders a small outlined `Badge` reading PRO after the label on Files and Images, uppercased in CSS and left at `text-[10px]`/`h-4` so it reads as a marker beside the label rather than competing with the item count still sitting in `SidebarMenuBadge` on the right; which types are Pro comes from a new `PRO_ITEM_TYPE_NAMES` in `src/lib/system-item-types.ts` — `["file", "image"] as const satisfies readonly SystemItemTypeName[]`, so a typo cannot name a type that does not exist — with `isProItemTypeName` beside the existing `isSystemItemTypeName`, keeping the monetization table's Pro set next to the system type list it draws from rather than inline in a component; the footer badge from step 13 was removed in the same commit, taking the `Badge` import with it and restoring `SidebarUser` to its pre-step-13 shape, and the drafted spec file was overwritten with the real one (plus a note naming the misnamed source); the first run 500'd because the component called `isProItemTypeName` without importing it — caught from the dev server log, not from lint, which stayed clean throughout; verified in the browser against the user's own dev server on port 3000 (a second `next dev` refuses to start for the same project, so the existing one was left running and never killed): PRO on Files and Images only, the other five types untouched, counts still 4/3/5/0/0/0/6, the footer back to name, email and Settings, and a clean console; `npx tsc --noEmit` was used for the type check while that server was up, with the full `npm run build` run before committing; the badge's text node stays "Pro" with the uppercase applied in CSS, so a screen reader announces "Pro" rather than spelling it out
+
+<!-- 15. Codebase scan quick wins (no spec file) -->
+
+15. Codebase scan quick wins (no spec file; goals came from a `codebase-scanner` audit on 2026-09-14) — low-risk fixes only, with no schema change, migration or UI change; authentication stayed out of scope, as did the `[userId, updatedAt]` / `[userId, createdAt]` indexes (they need a migration) and extracting shared `CollectionGrid` / collapsible nav group components; `findCollections` in `src/lib/db/collections.ts` no longer loads every `ItemCollection -> Item -> ItemType` row just to count them in JS — `itemCount` comes from `_count` and the type ranking from a new `getTypeCountsByCollection`, one parameterised `$queryRaw` grouped by collection and type name over the returned ids (skipped when there are none), so each call is two queries whose payload no longer grows with item count; strictly this was over-fetching rather than a true N+1, since Prisma already batched the nested relation; `rankTypes` now takes the count map but keeps the same order (most-used first, ties in `SYSTEM_ITEM_TYPE_NAMES` order, custom types skipped); `getCurrentUser` and `getItemTypeCounts` are wrapped in React `cache()` so the sidebar and page share one result per request (the saving itself was not measured); `getItemTypeCounts` reads system types only (`userId: null`); `server-only` installed and imported in each `src/lib/db/*.ts`, but not in `src/lib/prisma.ts`, because `prisma/seed.ts` and `scripts/test-db.ts` import it under `tsx`, where `server-only` throws; the inline `colorScheme` style on `<html>` became `[color-scheme:dark]`; the hand-written `ItemRow` type in `items.ts` became `ItemRecord`, derived with `Prisma.ItemGetPayload` from `ITEM_SELECT`; a shared `emptyItemTypeCounts()` replaced the sidebar's `EMPTY_TYPE_COUNTS`; a no-op `.padEnd(2)` was removed from the seed and `role="img"` added to `DominantTypeDot` so its `aria-label` is announced; a first attempt stalled on a stray `cat >` waiting on stdin, so the collections rewrite was redone with a direct file write; verified in the browser against the user's dev server on :3000 — 5 collections at 4/4/4/3/3 items with unchanged border colours and icon order (DevOps: Links, then Snippets and Commands tied in canonical order), sidebar counts 4/3/5/0/0/0/6, `/collections` unchanged, `/items/snippets` 200 and `/items/bogus` 404, computed `color-scheme` still dark with no inline style, clean console — with `npm run build`, `npm run lint`, `npx tsc --noEmit` and `npm run db:test` passing
