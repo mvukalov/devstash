@@ -1,7 +1,6 @@
 import { Settings } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { CurrentUser } from "@/lib/db/user";
 
@@ -29,16 +28,7 @@ export function SidebarUser({ user }: SidebarUserProps) {
         <AvatarFallback>{initials}</AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <p className="truncate text-sm font-medium">{name}</p>
-          {/* Display only — billing gating comes later. Hidden when signed out,
-              since there is no plan to report. */}
-          {user ? (
-            <Badge variant={user.isPro ? "default" : "outline"}>
-              {user.isPro ? "Pro" : "Free"}
-            </Badge>
-          ) : null}
-        </div>
+        <p className="truncate text-sm font-medium">{name}</p>
         <p className="text-muted-foreground truncate text-xs">{user?.email}</p>
       </div>
       <Button variant="ghost" size="icon-sm" aria-label="Settings">

@@ -39,6 +39,19 @@ export function isSystemItemTypeName(name: string): name is SystemItemTypeName {
   return (SYSTEM_ITEM_TYPE_NAMES as readonly string[]).includes(name);
 }
 
+/**
+ * The types the free tier cannot use, per the monetization table in
+ * context/project-overview.md. Marking only — gating itself is a later feature.
+ */
+export const PRO_ITEM_TYPE_NAMES = [
+  "file",
+  "image",
+] as const satisfies readonly SystemItemTypeName[];
+
+export function isProItemTypeName(name: SystemItemTypeName): boolean {
+  return (PRO_ITEM_TYPE_NAMES as readonly string[]).includes(name);
+}
+
 export const SYSTEM_ITEM_TYPES: SystemItemType[] = [
   { name: "snippet", icon: "Code", color: "#3b82f6" },
   { name: "prompt", icon: "Sparkles", color: "#8b5cf6" },
