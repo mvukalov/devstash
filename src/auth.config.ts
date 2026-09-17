@@ -15,6 +15,11 @@ import { CREDENTIALS_FIELDS } from "@/lib/validation/auth";
 // GitHub reads AUTH_GITHUB_ID / AUTH_GITHUB_SECRET from the environment on its
 // own — v5 infers them from the provider name, so nothing is passed here.
 export default {
+  // Phase 1 deliberately left this unset so NextAuth's own page was used. The
+  // custom page at /sign-in replaces it, and src/proxy.ts redirects there.
+  pages: {
+    signIn: "/sign-in",
+  },
   providers: [
     GitHub,
     // Placeholder only: it declares the fields so NextAuth renders the form and

@@ -11,7 +11,7 @@ import Credentials from "next-auth/providers/credentials";
 import type { Provider } from "next-auth/providers";
 
 import authConfig from "@/auth.config";
-import { findUserByEmail } from "@/lib/db/user";
+import { findUserByEmail } from "@/lib/db/auth-user";
 import { prisma } from "@/lib/prisma";
 import { CREDENTIALS_FIELDS, signInSchema } from "@/lib/validation/auth";
 

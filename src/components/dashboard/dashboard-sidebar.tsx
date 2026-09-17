@@ -22,8 +22,9 @@ const RECENT_COLLECTION_LIMIT = 5;
 export async function DashboardSidebar() {
   const user = await getCurrentUser();
 
-  // Signed out is not reachable yet (getCurrentUser resolves the seeded demo
-  // user), but the sidebar still renders its empty shape rather than throwing.
+  // The proxy gates every route that renders this, so a null user means the
+  // session went stale mid-render; the sidebar still shows its empty shape
+  // rather than throwing.
   const [{ favorites, recent }, typeCounts] = user
     ? await Promise.all([
         getSidebarCollections(user.id, RECENT_COLLECTION_LIMIT),

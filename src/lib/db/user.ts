@@ -1,18 +1,18 @@
 /**
  * Resolves the signed-in user.
  *
- * Auth is not wired up yet, so this falls back to the seeded demo user from
- * prisma/demo-data.ts. Replace the lookup with the NextAuth session once
- * authentication lands — every caller already treats the result as "the current
- * user", so nothing above this file needs to change.
+ * Every src/lib/db query is scoped by user id, and this is where that id comes
+ * from. It reads the NextAuth session rather than trusting it wholesale: the
+ * JWT carries a user id, but the name, email, image and plan are re-read from
+ * the database, so a rename or an upgrade shows up without waiting for the
+ * token to be reissued. A session pointing at a deleted user resolves to null.
  */
 import "server-only";
 
 import { cache } from "react";
 
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_USER_EMAIL = "demo@devstash.io";
 
 export interface CurrentUser {
   id: string;
@@ -28,53 +28,47 @@ export interface CurrentUser {
  */
 export const getCurrentUser = cache(
   async function getCurrentUser(): Promise<CurrentUser | null> {
+    const session = await auth();
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      return null;
+    }
+
     return prisma.user.findUnique({
-      where: { email: DEMO_USER_EMAIL },
+      where: { id: userId },
       select: { id: true, name: true, email: true, image: true, isPro: true },
     });
   },
 );
 
 /**
- * The email as it is stored for credentials accounts.
+ * How this account can sign in.
  *
- * Registration writes this form, so every password-backed account is canonical.
- * OAuth accounts are written by the Prisma adapter with whatever the provider
- * returns, which is why the lookup below cannot simply match on it.
+ * Read from what actually grants access — a bcrypt hash on the user, and the
+ * `Account` rows the adapter writes per OAuth provider — rather than inferred
+ * from something correlated like having a picture. An account can have both.
  */
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-export interface UserCredentials {
-  id: string;
-  name: string | null;
-  email: string | null;
-  image: string | null;
-  hashedPassword: string | null;
-}
-
-/**
- * Finds a user by email, ignoring case.
- *
- * `User.email` is a plain Postgres unique column, so `Foo@Bar.com` and
- * `foo@bar.com` are two distinct values to the database. Matching case
- * sensitively would let an OAuth account stored in mixed case be missed here —
- * silently creating a second account for the same person on registration, and
- * failing to find it on sign-in. Making the column `citext` would fix it at the
- * database level; until then both callers go through this.
- */
-export async function findUserByEmail(
-  email: string,
-): Promise<UserCredentials | null> {
-  return prisma.user.findFirst({
-    where: { email: { equals: normalizeEmail(email), mode: "insensitive" } },
+export async function getSignInMethods(userId: string): Promise<string[]> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
     select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true,
       hashedPassword: true,
+      accounts: { select: { provider: true } },
     },
   });
+
+  if (!user) {
+    return [];
+  }
+
+  const methods = user.accounts.map(({ provider }) =>
+    provider === "github" ? "GitHub" : provider,
+  );
+
+  if (user.hashedPassword) {
+    methods.push("Email and password");
+  }
+
+  return methods;
 }

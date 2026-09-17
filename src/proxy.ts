@@ -19,9 +19,8 @@ export const proxy = auth((req) => {
     return;
   }
 
-  // NextAuth's own sign-in page — the spec keeps `pages.signIn` unset, so this
-  // is the built-in one at /api/auth/signin.
-  const signInUrl = new URL("/api/auth/signin", req.nextUrl.origin);
+  // The custom page, which must match `pages.signIn` in src/auth.config.ts.
+  const signInUrl = new URL("/sign-in", req.nextUrl.origin);
   signInUrl.searchParams.set(
     "callbackUrl",
     `${req.nextUrl.pathname}${req.nextUrl.search}`,
@@ -30,8 +29,18 @@ export const proxy = auth((req) => {
   return NextResponse.redirect(signInUrl);
 });
 
-// Only the dashboard is gated for now. The matcher keeps everything else —
-// including /api/auth/* itself — out of the proxy entirely.
+// Every signed-in area. /sign-in, /register and /api/auth/* are deliberately
+// absent — the first two are where this redirects to, and the third is what
+// performs the sign-in.
 export const config = {
-  matcher: ["/dashboard", "/dashboard/:path*"],
+  matcher: [
+    "/dashboard",
+    "/dashboard/:path*",
+    "/collections",
+    "/collections/:path*",
+    "/items",
+    "/items/:path*",
+    "/profile",
+    "/profile/:path*",
+  ],
 };

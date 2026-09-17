@@ -12,7 +12,7 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 
 import { Prisma } from "@/generated/prisma/client";
-import { findUserByEmail, normalizeEmail } from "@/lib/db/user";
+import { findUserByEmail, normalizeEmail } from "@/lib/db/auth-user";
 import { prisma } from "@/lib/prisma";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { registerSchema } from "@/lib/validation/auth";
