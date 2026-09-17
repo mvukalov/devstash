@@ -46,3 +46,6 @@ next-env.d.ts
 
 # playwright mcp browser output
 .playwright-mcp/
+
+# MCP server config — holds a plaintext Context7 API key
+.mcp.json
