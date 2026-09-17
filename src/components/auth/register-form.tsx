@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
 
 import { AuthError } from "@/components/auth/auth-error";
 import { AuthField } from "@/components/auth/auth-field";
@@ -57,7 +58,13 @@ export function RegisterForm() {
       }
 
       // Registration does not sign anyone in — the spec sends them to sign in
-      // with the account they just made.
+      // with the account they just made. The toast is raised before the
+      // navigation on purpose: the Toaster lives in the root layout, so it
+      // outlives this form and the message lands on the sign-in page.
+      toast.success("Account created", {
+        description: "You can now sign in with your email and password.",
+      });
+
       router.push("/sign-in?registered=1");
     } catch {
       setError("Could not reach the server. Try again.");
