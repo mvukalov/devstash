@@ -1,18 +1,29 @@
-# Current Feature
+# Current Feature: Email Verification on Register
 
-<!-- Feature Name -->
+Spec: @context/features/email-verification-spec.md
 
 ## Status
 
-<!-- Not Started|In Progress|Completed -->
+In Progress
 
 ## Goals
 
-<!-- Goals & requirements -->
+- Send a verification email through Resend when an account is created at `/register`
+- The email carries a single-use link to `/verify-email?token=...`, valid for 24 hours
+- Clicking the link sets `User.emailVerified` and returns the user to `/sign-in?verified=1`
+- Credentials sign-in is refused while `emailVerified` is null, with a "Verify your email" message instead of "Wrong email or password"
+- A rate-limited resend path (`POST /api/auth/verify-email/resend`) for expired or lost links, answering generically so it cannot be used to probe for accounts
+- GitHub OAuth accounts are marked verified automatically — GitHub verifies the address itself, so those users never see this flow
+- Tokens stored hashed (SHA-256) in the existing `VerificationToken` model, consumed on first use
+- `resend` installed; `EMAIL_FROM` and `APP_URL` added to `.env` and `.env.example`
 
 ## Notes
 
-<!-- Any extra notes -->
+- **No migration needed.** `User.emailVerified` and `VerificationToken` both already exist — they came with the NextAuth Prisma adapter shape in the initial migration (step 7) and have never been used.
+- Sender is Resend's shared `onboarding@resend.dev`, per decision at load time. It only delivers to the address on the Resend account (martinvukalovic@gmail.com), so real delivery can only be tested with that address until a domain is verified. `EMAIL_FROM` keeps the swap to a real domain a one-line env change.
+- A Credentials failure always surfaces as `CredentialsSignin`, so the unverified case is carried out on a `CredentialsSignin` subclass (`src/lib/auth-errors.ts`) with `code = "unverified_email"`, thrown by `authorize` only *after* the password checks out. Deciding it in the action by email alone would have told anyone which addresses have unverified accounts.
+- Registration still returns 201 if the email fails to send — the account exists, and the UI points at the resend path rather than rolling the user back.
+- ~~Existing dev accounts need backfilling, and `prisma/seed.ts` should set it on the demo user.~~ Done: the 9 unverified accounts in the dev database were backfilled with `emailVerified = now()` so nothing is locked out. `prisma/seed.ts` already set `emailVerified` on the demo user, so the seed needed no change.
 
 ## History
 

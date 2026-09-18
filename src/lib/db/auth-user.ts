@@ -26,6 +26,8 @@ export interface UserCredentials {
   email: string | null;
   image: string | null;
   hashedPassword: string | null;
+  /** null until the address has been confirmed through a verification link. */
+  emailVerified: Date | null;
 }
 
 /**
@@ -49,6 +51,7 @@ export async function findUserByEmail(
       email: true,
       image: true,
       hashedPassword: true,
+      emailVerified: true,
     },
   });
 }

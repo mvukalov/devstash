@@ -6,13 +6,15 @@
  * and the CLI/mobile clients in the project overview will call it directly.
  *
  * Sign-in itself stays with NextAuth — this only creates the row that
- * src/auth.ts's Credentials `authorize` later reads.
+ * src/auth.ts's Credentials `authorize` later reads. That row starts
+ * unverified, and `authorize` refuses it until the emailed link is clicked.
  */
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 
 import { Prisma } from "@/generated/prisma/client";
 import { findUserByEmail, normalizeEmail } from "@/lib/db/auth-user";
+import { sendVerificationLink } from "@/lib/email/verification";
 import { prisma } from "@/lib/prisma";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { registerSchema } from "@/lib/validation/auth";
@@ -26,7 +28,16 @@ const RATE_LIMIT = 5;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
 type RegisterResponse =
-  | { success: true; data: { id: string; name: string | null; email: string | null } }
+  | {
+      success: true;
+      data: {
+        id: string;
+        name: string | null;
+        email: string | null;
+        /** False when the account exists but the link could not be mailed. */
+        emailSent: boolean;
+      };
+    }
   | { success: false; error: string };
 
 function failure(error: string, status: number, headers?: HeadersInit) {
@@ -83,8 +94,16 @@ export async function POST(request: Request) {
       select: { id: true, name: true, email: true },
     });
 
+    // A send failure does not undo the account — it exists and is simply
+    // unverified, which the resend endpoint can fix. Reporting it lets the form
+    // say so instead of claiming an email is on its way.
+    const emailSent = await sendVerificationLink({
+      email,
+      name: user.name,
+    });
+
     return NextResponse.json<RegisterResponse>(
-      { success: true, data: user },
+      { success: true, data: { ...user, emailSent } },
       { status: 201 },
     );
   } catch (error) {

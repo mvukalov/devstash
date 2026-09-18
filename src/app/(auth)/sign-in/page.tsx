@@ -29,7 +29,7 @@ export default async function SignInPage({
     redirect("/dashboard");
   }
 
-  const { callbackUrl, registered } = await searchParams;
+  const { callbackUrl, registered, verified } = await searchParams;
   const callback = typeof callbackUrl === "string" ? callbackUrl : undefined;
 
   return (
@@ -37,9 +37,11 @@ export default async function SignInPage({
       <CardHeader>
         <CardTitle>Welcome back</CardTitle>
         <CardDescription>
-          {registered
-            ? "Account created. Sign in to get started."
-            : "Sign in to your DevStash account."}
+          {verified
+            ? "Email verified. Sign in to get started."
+            : registered
+              ? "Account created. Check your email for the verification link."
+              : "Sign in to your DevStash account."}
         </CardDescription>
       </CardHeader>
 
