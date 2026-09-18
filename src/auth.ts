@@ -11,6 +11,7 @@ import Credentials from "next-auth/providers/credentials";
 import type { Provider } from "next-auth/providers";
 
 import authConfig from "@/auth.config";
+import { UnverifiedEmailError } from "@/lib/auth-errors";
 import { findUserByEmail } from "@/lib/db/auth-user";
 import { prisma } from "@/lib/prisma";
 import { CREDENTIALS_FIELDS, signInSchema } from "@/lib/validation/auth";
@@ -57,6 +58,12 @@ const credentialsProvider = Credentials({
       return null;
     }
 
+    // The password is right, so saying *why* this is being refused gives
+    // nothing away that the caller does not already know.
+    if (!user.emailVerified) {
+      throw new UnverifiedEmailError();
+    }
+
     // Never let the hash reach the JWT.
     return {
       id: user.id,
@@ -85,6 +92,25 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   // persists a session for.
   session: { strategy: "jwt" },
   callbacks: {
+    // GitHub only hands over an address it has verified itself, so an OAuth
+    // user must never be caught by the credentials check above. Done here
+    // rather than in the `linkAccount` event, which fires only when the account
+    // is first linked and so would miss everyone who signed in before this.
+    async signIn({ user, account }) {
+      if (
+        account &&
+        account.provider !== "credentials" &&
+        user.id &&
+        !("emailVerified" in user && user.emailVerified)
+      ) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: new Date() },
+        });
+      }
+
+      return true;
+    },
     // NextAuth puts the user id in the token's standard `sub` claim on the
     // sign-in pass, so there is no `jwt` callback here — this only copies it
     // onto the session, where the db helpers expect `user.id`.

@@ -1,12 +1,15 @@
 "use server";
 
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 
 import { signIn, signOut } from "@/auth";
+import { UNVERIFIED_EMAIL_CODE } from "@/lib/auth-errors";
 import { signInSchema } from "@/lib/validation/auth";
 
 export interface AuthActionState {
   error: string | null;
+  /** Set when the password was right but the address is still unverified. */
+  unverifiedEmail?: string;
 }
 
 /**
@@ -52,6 +55,18 @@ export async function signInWithCredentials(
     // A successful sign-in *also* lands here: signIn redirects by throwing, and
     // that error has to reach Next rather than be swallowed as a failure.
     if (error instanceof AuthError) {
+      // Thrown by `authorize` once the password has checked out, so this is the
+      // one case where naming the reason is safe.
+      if (
+        error instanceof CredentialsSignin &&
+        error.code === UNVERIFIED_EMAIL_CODE
+      ) {
+        return {
+          error: "Verify your email before signing in.",
+          unverifiedEmail: parsed.data.email,
+        };
+      }
+
       return {
         error:
           error.type === "CredentialsSignin"

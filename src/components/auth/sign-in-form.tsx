@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { signInWithCredentials, type AuthActionState } from "@/actions/auth";
 import { AuthError } from "@/components/auth/auth-error";
 import { AuthField } from "@/components/auth/auth-field";
+import { ResendVerification } from "@/components/auth/resend-verification";
 import { Button } from "@/components/ui/button";
 
 const INITIAL_STATE: AuthActionState = { error: null };
@@ -49,6 +50,12 @@ export function SignInForm({ callbackUrl }: { callbackUrl?: string }) {
       />
 
       <AuthError message={state.error} />
+
+      {/* Only ever set once the password checked out, so offering the link here
+          tells an attacker nothing they did not already have. */}
+      {state.unverifiedEmail && (
+        <ResendVerification email={state.unverifiedEmail} />
+      )}
 
       <Button type="submit" disabled={pending}>
         {pending ? "Signing in…" : "Sign in"}
