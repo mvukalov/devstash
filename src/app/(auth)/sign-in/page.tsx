@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { isEmailVerificationEnabled } from "@/lib/config";
 import { getCurrentUser } from "@/lib/db/user";
 
 export const metadata: Metadata = {
@@ -40,7 +41,9 @@ export default async function SignInPage({
           {verified
             ? "Email verified. Sign in to get started."
             : registered
-              ? "Account created. Check your email for the verification link."
+              ? isEmailVerificationEnabled()
+                ? "Account created. Check your email for the verification link."
+                : "Account created. Sign in to get started."
               : "Sign in to your DevStash account."}
         </CardDescription>
       </CardHeader>

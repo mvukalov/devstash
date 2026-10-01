@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { isEmailVerificationEnabled } from "@/lib/config";
 import { findUserByEmail } from "@/lib/db/auth-user";
 import { sendVerificationLink } from "@/lib/email/verification";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -62,7 +63,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const user = await findUserByEmail(parsed.data.email);
+  // Same generic answer while verification is off — nothing needs a link then.
+  const user = isEmailVerificationEnabled()
+    ? await findUserByEmail(parsed.data.email)
+    : null;
 
   if (user?.email && !user.emailVerified) {
     await sendVerificationLink({ email: user.email, name: user.name });

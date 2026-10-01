@@ -12,6 +12,7 @@ import type { Provider } from "next-auth/providers";
 
 import authConfig from "@/auth.config";
 import { UnverifiedEmailError } from "@/lib/auth-errors";
+import { isEmailVerificationEnabled } from "@/lib/config";
 import { findUserByEmail } from "@/lib/db/auth-user";
 import { prisma } from "@/lib/prisma";
 import { CREDENTIALS_FIELDS, signInSchema } from "@/lib/validation/auth";
@@ -59,8 +60,9 @@ const credentialsProvider = Credentials({
     }
 
     // The password is right, so saying *why* this is being refused gives
-    // nothing away that the caller does not already know.
-    if (!user.emailVerified) {
+    // nothing away that the caller does not already know. Skipped entirely
+    // while verification is switched off (see src/lib/config.ts).
+    if (!user.emailVerified && isEmailVerificationEnabled()) {
       throw new UnverifiedEmailError();
     }
 
