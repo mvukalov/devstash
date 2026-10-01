@@ -7,12 +7,14 @@
  *
  * Sign-in itself stays with NextAuth — this only creates the row that
  * src/auth.ts's Credentials `authorize` later reads. That row starts
- * unverified, and `authorize` refuses it until the emailed link is clicked.
+ * unverified, and `authorize` refuses it until the emailed link is clicked —
+ * unless verification is switched off, in which case no email is sent.
  */
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 
 import { Prisma } from "@/generated/prisma/client";
+import { isEmailVerificationEnabled } from "@/lib/config";
 import { findUserByEmail, normalizeEmail } from "@/lib/db/auth-user";
 import { sendVerificationLink } from "@/lib/email/verification";
 import { prisma } from "@/lib/prisma";
@@ -36,6 +38,8 @@ type RegisterResponse =
         email: string | null;
         /** False when the account exists but the link could not be mailed. */
         emailSent: boolean;
+        /** False when verification is switched off and the user can sign in now. */
+        verificationRequired: boolean;
       };
     }
   | { success: false; error: string };
@@ -87,23 +91,30 @@ export async function POST(request: Request) {
   }
 
   const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const verificationRequired = isEmailVerificationEnabled();
 
   try {
+    // While verification is skipped the account is marked verified straight
+    // away, so switching verification back on later does not lock it out.
     const user = await prisma.user.create({
-      data: { name, email, hashedPassword },
+      data: {
+        name,
+        email,
+        hashedPassword,
+        emailVerified: verificationRequired ? null : new Date(),
+      },
       select: { id: true, name: true, email: true },
     });
 
     // A send failure does not undo the account — it exists and is simply
     // unverified, which the resend endpoint can fix. Reporting it lets the form
     // say so instead of claiming an email is on its way.
-    const emailSent = await sendVerificationLink({
-      email,
-      name: user.name,
-    });
+    const emailSent = verificationRequired
+      ? await sendVerificationLink({ email, name: user.name })
+      : false;
 
     return NextResponse.json<RegisterResponse>(
-      { success: true, data: { ...user, emailSent } },
+      { success: true, data: { ...user, emailSent, verificationRequired } },
       { status: 201 },
     );
   } catch (error) {

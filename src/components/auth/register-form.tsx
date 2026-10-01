@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { MailCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -17,11 +18,14 @@ import { registerSchema } from "@/lib/validation/auth";
  * taken email, 429 for the rate limit). The same Zod schema runs here first, so
  * an obvious mistake never costs a round trip — the server re-validates anyway.
  *
- * Success does not navigate: the account is unusable until the emailed link is
- * clicked, so the form is replaced in place by what to do next rather than
- * dropping the user on a sign-in page that would only refuse them.
+ * When verification is on, success does not navigate: the account is unusable
+ * until the emailed link is clicked, so the form is replaced in place by what to
+ * do next rather than dropping the user on a sign-in page that would only refuse
+ * them. When the server reports it off, the account works at once, so the user
+ * goes straight to sign in.
  */
 export function RegisterForm() {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [registered, setRegistered] = useState<{
@@ -60,12 +64,22 @@ export function RegisterForm() {
       const result: {
         success: boolean;
         error?: string;
-        data?: { emailSent: boolean };
+        data?: { emailSent: boolean; verificationRequired: boolean };
       } = await response.json();
 
       if (!response.ok || !result.success) {
         setError(result.error ?? "Could not create the account");
         setPending(false);
+        return;
+      }
+
+      // The Toaster lives in the root layout, so it outlives this form and the
+      // message lands on the sign-in page.
+      if (result.data?.verificationRequired === false) {
+        toast.success("Account created", {
+          description: "You can now sign in with your email and password.",
+        });
+        router.push("/sign-in?registered=1");
         return;
       }
 
